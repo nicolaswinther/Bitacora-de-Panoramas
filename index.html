@@ -230,7 +230,6 @@
   .leaflet-popup-content{ font-family:-apple-system,sans-serif; font-size:13px; }
   .popup-title{ font-family:Georgia,serif; font-weight:700; font-size:14px; margin-bottom:3px; }
 
-  #importFile{ display:none; }
 
   details.howto{ margin-top:6px; font-size:12px; color:var(--slate); }
   details.howto summary{ cursor:pointer; color:var(--rust-dark); font-family:"SFMono-Regular",monospace; font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
@@ -280,9 +279,6 @@
     <option value="az">Ordenar: A–Z</option>
   </select>
   <input type="text" id="searchBox" placeholder="Buscar por nombre o palabra clave...">
-  <button class="util-btn" id="exportBtn">⬇ Exportar</button>
-  <button class="util-btn" id="importBtn">⬆ Importar</button>
-  <input type="file" id="importFile" accept="application/json">
   <div class="filter-count" id="filterCount"></div>
 </div>
 
@@ -701,42 +697,6 @@ form.addEventListener('submit', (e)=>{
   $('#'+id).addEventListener('change', render);
 });
 $('#searchBox').addEventListener('input', render);
-
-/* ---------- EXPORT / IMPORT (respaldo manual, funciona siempre) ---------- */
-$('#exportBtn').addEventListener('click', ()=>{
-  const blob = new Blob([JSON.stringify(panoramas, null, 2)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `panoramas-${new Date().toISOString().slice(0,10)}.json`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-  showToast('Lista exportada.');
-});
-$('#importBtn').addEventListener('click', ()=> $('#importFile').click());
-$('#importFile').addEventListener('change', (e)=>{
-  const file = e.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = (ev)=>{
-    try{
-      const incoming = JSON.parse(ev.target.result);
-      if(!Array.isArray(incoming)) throw new Error('formato inválido');
-      const byId = new Map(panoramas.map(p=>[p.id,p]));
-      incoming.forEach(p=> byId.set(p.id, p));
-      panoramas = [...byId.values()];
-      saveData();
-      render();
-      showToast(`Lista combinada: ${incoming.length} panoramas importados.`);
-    }catch(err){
-      showToast('No se pudo leer ese archivo.');
-    }
-    e.target.value = '';
-  };
-  reader.readAsText(file);
-});
 
 /* ---------- MAPA (Leaflet + OpenStreetMap, gratis, sin clave) ---------- */
 async function geocode(query){
