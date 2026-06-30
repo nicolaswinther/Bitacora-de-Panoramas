@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Bitácora de Panoramas</title>
+
+<!-- PWA / "Añadir a inicio" -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Panoramas">
+<meta name="theme-color" content="#2F4538">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%232F4538'/%3E%3Cpath d='M50 18l9.5 19.3 21.3 3.1-15.4 15 3.6 21.2L50 66.5 31 76.6l3.6-21.2-15.4-15 21.3-3.1z' fill='%23FFC53D'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%232F4538'/%3E%3Cpath d='M50 18l9.5 19.3 21.3 3.1-15.4 15 3.6 21.2L50 66.5 31 76.6l3.6-21.2-15.4-15 21.3-3.1z' fill='%23FFC53D'/%3E%3C/svg%3E">
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Firebase (sincronización en tiempo real, capa gratuita) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<style>
+  :root{
+    --paper:#EDE6D6;
+    --paper-light:#F6F2E7;
+    --ink:#2B2620;
+    --pine:#2F4538;
+    --pine-light:#3E5A49;
+    --rust:#BD5B38;
+    --rust-dark:#9C4A2D;
+    --star:#FFC53D;
+    --star-bg:#D9CFB8;
+    --slate:#5B6B66;
+    --line:#D9CFB8;
+    --green:#3E7A4C;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    background-image:radial-gradient(circle at 1px 1px, rgba(43,38,32,0.05) 1px, transparent 0);
+    background-size:18px 18px;
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    min-height:100vh;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .mono{font-family:"SFMono-Regular",Menlo,Consolas,monospace;}
+
+  header{
+    padding:max(20px,env(safe-area-inset-top)) 20px 18px;
+    max-width:1100px;
+    margin:0 auto;
+    border-bottom:2px solid var(--ink);
+  }
+  .eyebrow{
+    font-family:"SFMono-Regular",Menlo,Consolas,monospace;
+    font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--rust-dark); margin-bottom:6px;
+  }
+  h1{
+    font-family:Georgia,"Iowan Old Style",serif;
+    font-size:34px; margin:0 0 6px; font-weight:700; letter-spacing:-0.5px; color:var(--pine);
+  }
+  .subtitle{ color:var(--slate); font-size:14px; max-width:560px; line-height:1.5; }
+  .header-row{ display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap; }
+  .btn-row{ display:flex; gap:8px; flex-wrap:wrap; }
+
+  .add-btn, .util-btn{
+    border:none; cursor:pointer; border-radius:3px;
+    font-family:"SFMono-Regular",Menlo,Consolas,monospace;
+    font-size:12px; letter-spacing:.05em; text-transform:uppercase;
+    transition:background .15s ease, transform .1s ease;
+    white-space:nowrap;
+  }
+  .add-btn{ background:var(--rust); color:var(--paper-light); padding:12px 20px; }
+  .add-btn:hover{background:var(--rust-dark);}
+  .util-btn{ background:var(--paper-light); color:var(--ink); border:1.5px solid var(--ink); padding:10px 14px; }
+  .util-btn:hover{ background:var(--ink); color:var(--paper-light); }
+  .util-btn.active{ background:var(--pine); color:var(--paper-light); border-color:var(--pine); }
+  button:active{transform:scale(0.97);}
+
+  .sync-pill{
+    display:inline-flex; align-items:center; gap:6px;
+    font-family:"SFMono-Regular",monospace; font-size:11px;
+    padding:6px 10px; border-radius:12px; border:1.5px solid var(--ink);
+    background:var(--paper-light); cursor:pointer;
+  }
+  .sync-dot{ width:8px; height:8px; border-radius:50%; background:var(--slate); flex:none; }
+  .sync-dot.on{ background:var(--green); }
+  .sync-dot.off{ background:var(--rust); }
+
+  .filters{
+    max-width:1100px; margin:18px auto 0; padding:0 20px;
+    display:flex; gap:9px; flex-wrap:wrap; align-items:center;
+  }
+  .filters select, .filters input[type="text"]{
+    font-family:"SFMono-Regular",Menlo,Consolas,monospace; font-size:12px;
+    padding:9px 11px; border:1.5px solid var(--ink); background:var(--paper-light);
+    color:var(--ink); border-radius:2px; cursor:pointer;
+  }
+  .filters input[type="text"]{ cursor:text; flex:1 1 160px; min-width:140px; }
+  .filter-count{ margin-left:auto; font-family:"SFMono-Regular",monospace; font-size:11px; color:var(--slate); white-space:nowrap; }
+
+  .map-panel{ max-width:1100px; margin:18px auto 0; padding:0 20px; display:none; }
+  .map-panel.open{ display:block; }
+  #leafletMap{ height:360px; width:100%; border:2px solid var(--ink); border-radius:6px; background:var(--paper-light); }
+  .map-status{ font-family:"SFMono-Regular",monospace; font-size:11px; color:var(--slate); margin-top:6px; }
+
+  .grid{
+    max-width:1100px; margin:24px auto 70px; padding:0 20px;
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(258px,1fr)); gap:20px;
+  }
+  .empty-state{ max-width:1100px; margin:60px auto; padding:0 20px; text-align:center; color:var(--slate); }
+  .empty-state .stamp{ font-size:38px; margin-bottom:10px; }
+
+  .card{
+    background:var(--paper-light); border:1.5px solid var(--ink); border-radius:4px; overflow:hidden;
+    display:flex; flex-direction:column; position:relative;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .card:hover{ transform:translateY(-3px); box-shadow:4px 6px 0 rgba(43,38,32,0.12); }
+  .card-img{
+    width:100%; height:138px; background:var(--line) center/cover no-repeat;
+    display:flex; align-items:center; justify-content:center; color:var(--slate);
+    font-size:11px; font-family:"SFMono-Regular",monospace; position:relative;
+  }
+  .type-tag{
+    position:absolute; top:8px; left:8px; background:var(--pine); color:var(--paper-light);
+    font-family:"SFMono-Regular",monospace; font-size:10px; letter-spacing:.04em; text-transform:uppercase;
+    padding:4px 8px; border-radius:2px;
+  }
+  .perforation{ position:relative; height:0; border-top:2px dashed var(--ink); }
+  .perforation::before, .perforation::after{
+    content:""; position:absolute; top:-7px; width:14px; height:14px; background:var(--paper);
+    border-radius:50%; border:1.5px solid var(--ink);
+  }
+  .perforation::before{left:-9px;} .perforation::after{right:-9px;}
+
+  .card-body{ padding:14px 16px 16px; display:flex; flex-direction:column; gap:8px; flex:1; }
+  .card-title{ font-family:Georgia,"Iowan Old Style",serif; font-size:18px; font-weight:700; line-height:1.25; }
+  .card-meta{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-family:"SFMono-Regular",monospace; font-size:11px; color:var(--slate); }
+  .comuna-pill{ background:var(--paper); border:1px solid var(--line); padding:2px 7px; border-radius:10px; }
+  .maps-link{ color:var(--rust-dark); text-decoration:none; border-bottom:1px dotted var(--rust-dark); }
+  .maps-link:hover{ color:var(--rust); }
+  .card-desc{ font-size:13px; line-height:1.5; opacity:.85; flex:1; }
+
+  .stars-row{ display:flex; align-items:center; gap:7px; }
+  .star-disp{ position:relative; width:16px; height:16px; display:inline-block; }
+  .star-disp svg{ position:absolute; top:0; left:0; width:16px; height:16px; }
+  .rating-num{ font-family:"SFMono-Regular",monospace; font-size:12px; color:var(--rust-dark); font-weight:bold; }
+
+  .card-actions{ display:flex; gap:8px; margin-top:4px; }
+  .icon-btn{
+    background:none; border:1.5px solid var(--ink); color:var(--ink);
+    font-family:"SFMono-Regular",monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em;
+    padding:6px 10px; border-radius:2px; cursor:pointer; flex:1; transition:background .12s ease, color .12s ease;
+  }
+  .icon-btn:hover{ background:var(--ink); color:var(--paper-light); }
+  .icon-btn.danger:hover{ background:var(--rust-dark); border-color:var(--rust-dark); color:#fff; }
+
+  .overlay{
+    position:fixed; inset:0; background:rgba(43,38,32,0.55); display:none;
+    align-items:flex-start; justify-content:center; overflow-y:auto; padding:30px 14px; z-index:50;
+  }
+  .overlay.open{ display:flex; }
+  .modal{ background:var(--paper-light); border:2px solid var(--ink); border-radius:6px; width:100%; max-width:520px; padding:24px 22px 20px; }
+  .modal h2{ font-family:Georgia,serif; color:var(--pine); margin:0 0 16px; font-size:21px; }
+  .modal p.help{ font-size:12.5px; color:var(--slate); line-height:1.6; margin:0 0 14px; }
+  .field{ margin-bottom:13px; }
+  .field label{
+    display:block; font-family:"SFMono-Regular",monospace; font-size:10.5px; text-transform:uppercase;
+    letter-spacing:.06em; color:var(--slate); margin-bottom:5px;
+  }
+  .field input[type="text"], .field select, .field textarea{
+    width:100%; padding:10px 11px; border:1.5px solid var(--ink); border-radius:2px; background:var(--paper);
+    font-family:-apple-system,sans-serif; font-size:13.5px; color:var(--ink);
+  }
+  .field textarea{ resize:vertical; min-height:60px; }
+  .field textarea.code-area{ font-family:"SFMono-Regular",monospace; font-size:11.5px; min-height:90px; }
+  .row-2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+  .star-input-row{ display:flex; align-items:center; gap:12px; }
+  .star-input{ display:flex; gap:3px; }
+  .star-input .star-disp{ width:26px; height:26px; cursor:pointer; }
+  .star-input .star-disp svg{ width:26px; height:26px; }
+  .clear-rating{
+    background:none; border:none; color:var(--slate); font-family:"SFMono-Regular",monospace;
+    font-size:11px; text-decoration:underline; cursor:pointer; padding:0;
+  }
+  .rating-display{ font-family:"SFMono-Regular",monospace; font-weight:bold; color:var(--rust-dark); }
+
+  .img-upload{
+    border:1.5px dashed var(--ink); border-radius:3px; padding:14px; text-align:center; cursor:pointer;
+    position:relative; background:var(--paper);
+  }
+  .img-upload img{ max-width:100%; max-height:140px; border-radius:2px; display:block; margin:0 auto; }
+  .img-upload .hint{ font-family:"SFMono-Regular",monospace; font-size:11px; color:var(--slate); }
+  .img-upload input[type=file]{ position:absolute; inset:0; opacity:0; cursor:pointer; }
+
+  .modal-actions{ display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; }
+  .btn{
+    flex:1; min-width:120px; padding:11px; border-radius:3px; font-family:"SFMono-Regular",monospace; font-size:11.5px;
+    text-transform:uppercase; letter-spacing:.04em; cursor:pointer; border:1.5px solid var(--ink);
+  }
+  .btn.primary{ background:var(--pine); color:var(--paper-light); border-color:var(--pine); }
+  .btn.primary:hover{ background:var(--pine-light); }
+  .btn.ghost{ background:transparent; color:var(--ink); }
+  .btn.ghost:hover{ background:var(--ink); color:var(--paper-light); }
+  .btn.danger-outline{ background:transparent; color:var(--rust-dark); border-color:var(--rust-dark); }
+  .btn.danger-outline:hover{ background:var(--rust-dark); color:#fff; }
+
+  .toast{
+    position:fixed; bottom:max(22px,env(safe-area-inset-bottom)); left:50%;
+    transform:translateX(-50%) translateY(20px); background:var(--ink); color:var(--paper-light);
+    padding:10px 18px; border-radius:4px; font-family:"SFMono-Regular",monospace; font-size:12px;
+    opacity:0; pointer-events:none; transition:opacity .2s ease, transform .2s ease; z-index:100;
+    max-width:88%; text-align:center;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  .sync-note{
+    max-width:1100px; margin:14px auto 0; padding:0 20px;
+    font-family:"SFMono-Regular",monospace; font-size:10.5px; color:var(--slate); line-height:1.6;
+  }
+
+  .leaflet-popup-content{ font-family:-apple-system,sans-serif; font-size:13px; }
+  .popup-title{ font-family:Georgia,serif; font-weight:700; font-size:14px; margin-bottom:3px; }
+
+  #importFile{ display:none; }
+
+  details.howto{ margin-top:6px; font-size:12px; color:var(--slate); }
+  details.howto summary{ cursor:pointer; color:var(--rust-dark); font-family:"SFMono-Regular",monospace; font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+  details.howto ol{ padding-left:18px; line-height:1.7; }
+  details.howto code{ background:var(--paper); padding:1px 5px; border-radius:2px; }
+
+  @media (max-width:520px){
+    .row-2{ grid-template-columns:1fr; }
+    h1{ font-size:27px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-row">
+    <div>
+      <div class="eyebrow">Catálogo de citas · Santiago</div>
+      <h1>Bitácora de Panoramas</h1>
+      <div class="subtitle">Todos los lugares que han guardado para ir juntos, con dirección, comuna, foto de referencia y la calificación que le pongan después de ir.</div>
+    </div>
+    <div class="btn-row">
+      <span class="sync-pill" id="syncPill"><span class="sync-dot" id="syncDot"></span><span id="syncPillText">Solo este celular</span></span>
+      <button class="util-btn" id="mapToggleBtn">🗺️ Ver mapa</button>
+      <button class="add-btn" id="openAddBtn">+ Añadir panorama</button>
+    </div>
+  </div>
+</header>
+
+<div class="sync-note" id="syncNote">
+  Toca "Solo este celular" arriba para conectar la sincronización en tiempo real con tu pareja.
+</div>
+
+<div class="filters">
+  <select id="filterComuna"><option value="">Comuna: todas</option></select>
+  <select id="filterTipo"><option value="">Tipo: todos</option></select>
+  <select id="filterRating">
+    <option value="0">Puntuación: todas</option>
+    <option value="4.5">★ 4.5 o más</option>
+    <option value="4">★ 4 o más</option>
+    <option value="3">★ 3 o más</option>
+    <option value="2">★ 2 o más</option>
+  </select>
+  <select id="sortBy">
+    <option value="rating">Ordenar: mejor puntuados</option>
+    <option value="recent">Ordenar: más recientes</option>
+    <option value="az">Ordenar: A–Z</option>
+  </select>
+  <input type="text" id="searchBox" placeholder="Buscar por nombre o palabra clave...">
+  <button class="util-btn" id="exportBtn">⬇ Exportar</button>
+  <button class="util-btn" id="importBtn">⬆ Importar</button>
+  <input type="file" id="importFile" accept="application/json">
+  <div class="filter-count" id="filterCount"></div>
+</div>
+
+<div class="map-panel" id="mapPanel">
+  <div id="leafletMap"></div>
+  <div class="map-status" id="mapStatus"></div>
+</div>
+
+<div class="grid" id="grid"></div>
+<div class="empty-state" id="emptyState" style="display:none;">
+  <div class="stamp">☆</div>
+  <div style="font-family:Georgia,serif; font-size:18px; margin-bottom:4px;">Todavía no hay panoramas guardados</div>
+  <div>Toca "Añadir panorama" y empiecen a construir la lista juntos.</div>
+</div>
+
+<!-- MODAL: agregar/editar panorama -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2 id="modalTitle">Nuevo panorama</h2>
+    <form id="form">
+      <div class="field">
+        <label>Nombre del lugar o actividad</label>
+        <input type="text" id="f_name" required placeholder="Ej: Café La Catedral">
+      </div>
+      <div class="row-2">
+        <div class="field">
+          <label>Tipo de actividad</label>
+          <select id="f_tipo">
+            <option>Cafetería</option>
+            <option>Restaurante</option>
+            <option>Bar</option>
+            <option>Cultural / Museo</option>
+            <option>Galería</option>
+            <option>Parque</option>
+            <option>Parque de diversiones</option>
+            <option>Aire libre / Naturaleza</option>
+            <option>Música / Show</option>
+            <option>Otro</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Comuna</label>
+          <input type="text" id="f_comuna" required placeholder="Ej: Providencia">
+        </div>
+      </div>
+      <div class="field">
+        <label>Dirección</label>
+        <input type="text" id="f_direccion" placeholder="Calle, número">
+      </div>
+      <div class="field">
+        <label>Descripción / palabras clave</label>
+        <textarea id="f_desc" placeholder="Ej: luz natural, plantas colgantes, rincón para leer, vista a la cordillera..."></textarea>
+      </div>
+      <div class="field">
+        <label>Imagen de referencia</label>
+        <div class="img-upload" id="imgUpload">
+          <div id="imgPreviewWrap">
+            <div class="hint">Toca para subir una foto (se comprime automáticamente)</div>
+          </div>
+          <input type="file" id="f_image" accept="image/*">
+        </div>
+      </div>
+      <div class="field">
+        <label>Calificación</label>
+        <div class="star-input-row">
+          <div class="star-input" id="starInput"></div>
+          <span class="rating-display" id="ratingDisplay">0.0</span>
+          <button type="button" class="clear-rating" id="clearRating">borrar</button>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn ghost" id="cancelBtn">Cancelar</button>
+        <button type="submit" class="btn primary" id="saveBtn">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: sincronización -->
+<div class="overlay" id="syncOverlay">
+  <div class="modal">
+    <h2>Sincronización en tiempo real</h2>
+    <p class="help" id="syncStatusLine">Estado: solo este celular (sin conectar).</p>
+
+    <div class="field">
+      <label>Configuración de Firebase (la pegas una sola vez)</label>
+      <textarea class="code-area" id="cfgInput" placeholder='Pega aquí el objeto firebaseConfig que te entrega Firebase, por ejemplo:
+{
+  apiKey: "...",
+  authDomain: "...",
+  projectId: "...",
+  storageBucket: "...",
+  messagingSenderId: "...",
+  appId: "..."
+}'></textarea>
+    </div>
+    <div class="field">
+      <label>Código de pareja (el mismo en los dos celulares)</label>
+      <input type="text" id="roomCodeInput" placeholder="Ej: nico-fer-2026">
+    </div>
+
+    <details class="howto">
+      <summary>¿Cómo consigo esto? (5 min, gratis, sin tarjeta)</summary>
+      <ol>
+        <li>Entra a <code>console.firebase.google.com</code> con una cuenta de Google y crea un proyecto nuevo.</li>
+        <li>En el menú lateral ve a <strong>Build → Firestore Database</strong> y crea la base de datos (modo producción está bien).</li>
+        <li>Dentro de Firestore, pestaña <strong>Reglas</strong>, pega esto y publica:<br>
+          <code>match /rooms/{room} { allow read, write: if request.auth != null; }</code></li>
+        <li>Ve a <strong>Build → Authentication → Sign-in method</strong> y activa el proveedor <strong>Anónimo</strong>.</li>
+        <li>Ve a <strong>Configuración del proyecto</strong> (⚙️) → en "Tus apps" agrega una app Web (ícono &lt;/&gt;).</li>
+        <li>Copia el objeto <code>firebaseConfig</code> que te muestra y pégalo arriba.</li>
+        <li>Inventen un código de pareja y escríbanlo igual en ambos celulares.</li>
+      </ol>
+    </details>
+
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" id="syncCloseBtn">Cerrar</button>
+      <button type="button" class="btn danger-outline" id="syncDisconnectBtn">Desconectar</button>
+      <button type="button" class="btn primary" id="syncConnectBtn">Conectar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STORAGE_KEY = 'panoramas-data-v1';
+const SYNC_CFG_KEY = 'sync-config-v1';
+const SYNC_ROOM_KEY = 'sync-room-v1';
+
+let panoramas = [];
+let editingId = null;
+let pendingImage = null;
+let currentRating = 0;
+let mapInstance = null;
+let mapOpen = false;
+let mapMarkersLayer = null;
+
+// sync state
+let fbDb = null, fbAuth = null;
+let syncRoom = null;
+let unsubscribeSnapshot = null;
+let suppressPush = false;
+let pushTimer = null;
+
+const $ = sel => document.querySelector(sel);
+const grid = $('#grid');
+const emptyState = $('#emptyState');
+const overlay = $('#overlay');
+const form = $('#form');
+const toast = $('#toast');
+
+function showToast(msg){
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(()=>toast.classList.remove('show'), 2600);
+}
+
+/* ---------- LOCAL STORAGE (offline cache, always kept up to date) ---------- */
+function loadData(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    panoramas = raw ? JSON.parse(raw) : [];
+  }catch(e){
+    panoramas = [];
+  }
+  render();
+}
+function saveData(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(panoramas));
+  }catch(e){
+    showToast('No se pudo guardar localmente (memoria llena).');
+  }
+  pushToRoom();
+}
+
+/* ---------- STAR RENDERING (Letterboxd-style half stars) ---------- */
+function starSVGFull(){
+  return `<svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.27 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2z" fill="var(--star)"/></svg>`;
+}
+function starSVGEmpty(){
+  return `<svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.27 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2z" fill="var(--star-bg)"/></svg>`;
+}
+function buildStar(fraction){
+  const clipPct = 100 - (fraction*100);
+  return `<span class="star-disp">
+      ${starSVGEmpty()}
+      <span style="position:absolute;top:0;left:0;width:100%;height:100%;overflow:hidden;clip-path:inset(0 ${clipPct}% 0 0);">${starSVGFull()}</span>
+    </span>`;
+}
+function starsDisplayHTML(rating){
+  let out = '';
+  for(let i=1;i<=5;i++){
+    const f = Math.max(0, Math.min(1, rating - (i-1)));
+    const snapped = f >= 0.75 ? 1 : (f >= 0.25 ? 0.5 : 0);
+    out += buildStar(snapped);
+  }
+  return out;
+}
+function renderStarInput(){
+  const container = $('#starInput');
+  container.innerHTML = '';
+  for(let i=1;i<=5;i++){
+    const f = Math.max(0, Math.min(1, currentRating - (i-1)));
+    const snapped = f >= 0.75 ? 1 : (f >= 0.25 ? 0.5 : 0);
+    const wrap = document.createElement('span');
+    wrap.innerHTML = buildStar(snapped);
+    const starEl = wrap.firstElementChild;
+    starEl.dataset.index = i;
+    starEl.addEventListener('click', (e)=>{
+      const rect = starEl.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const half = clickX < rect.width/2;
+      currentRating = half ? (i - 0.5) : i;
+      renderStarInput();
+      $('#ratingDisplay').textContent = currentRating.toFixed(1);
+    });
+    container.appendChild(starEl);
+  }
+}
+$('#clearRating').addEventListener('click', ()=>{
+  currentRating = 0;
+  renderStarInput();
+  $('#ratingDisplay').textContent = '0.0';
+});
+
+/* ---------- GOOGLE MAPS LINK (satellite, free, no key) ---------- */
+function googleMapsSatUrl(direccion, comuna){
+  const q = [direccion, comuna, 'Chile'].filter(Boolean).join(', ');
+  return `https://maps.google.com/maps?q=${encodeURIComponent(q)}&t=k`;
+}
+
+/* ---------- FILTER / RENDER ---------- */
+function escapeHTML(str){
+  return (str||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function populateFilterOptions(){
+  const comunaSel = $('#filterComuna');
+  const tipoSel = $('#filterTipo');
+  const currentComuna = comunaSel.value;
+  const currentTipo = tipoSel.value;
+  const comunas = [...new Set(panoramas.map(p=>p.comuna).filter(Boolean))].sort();
+  const tipos = [...new Set(panoramas.map(p=>p.tipo).filter(Boolean))].sort();
+  comunaSel.innerHTML = '<option value="">Comuna: todas</option>' + comunas.map(c=>`<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join('');
+  tipoSel.innerHTML = '<option value="">Tipo: todos</option>' + tipos.map(t=>`<option value="${escapeHTML(t)}">${escapeHTML(t)}</option>`).join('');
+  comunaSel.value = currentComuna;
+  tipoSel.value = currentTipo;
+}
+function getFiltered(){
+  const comuna = $('#filterComuna').value;
+  const tipo = $('#filterTipo').value;
+  const minRating = parseFloat($('#filterRating').value)||0;
+  const search = $('#searchBox').value.trim().toLowerCase();
+  const sortBy = $('#sortBy').value;
+  let list = panoramas.filter(p=>{
+    if(comuna && p.comuna !== comuna) return false;
+    if(tipo && p.tipo !== tipo) return false;
+    if((p.rating||0) < minRating) return false;
+    if(search){
+      const hay = (p.nombre+' '+p.descripcion+' '+p.comuna+' '+p.tipo).toLowerCase();
+      if(!hay.includes(search)) return false;
+    }
+    return true;
+  });
+  if(sortBy === 'rating') list.sort((a,b)=> (b.rating||0) - (a.rating||0));
+  else if(sortBy === 'az') list.sort((a,b)=> a.nombre.localeCompare(b.nombre));
+  else list.sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
+  return list;
+}
+function render(){
+  populateFilterOptions();
+  const list = getFiltered();
+  $('#filterCount').textContent = `${list.length} de ${panoramas.length} panorama${panoramas.length===1?'':'s'}`;
+
+  if(panoramas.length === 0){
+    grid.innerHTML = '';
+    emptyState.style.display = 'block';
+    return;
+  }
+  emptyState.style.display = 'none';
+
+  if(list.length === 0){
+    grid.innerHTML = `<div style="grid-column:1/-1; color:var(--slate); font-family:'SFMono-Regular',monospace; font-size:12px; padding:20px 0;">Ningún panorama coincide con estos filtros.</div>`;
+    return;
+  }
+
+  grid.innerHTML = list.map(p => `
+    <div class="card" data-id="${p.id}">
+      <div class="card-img" style="${p.image ? `background-image:url('${p.image}')` : ''}">
+        <span class="type-tag">${escapeHTML(p.tipo)}</span>
+        ${!p.image ? '<span>sin imagen</span>' : ''}
+      </div>
+      <div class="perforation"></div>
+      <div class="card-body">
+        <div class="card-title">${escapeHTML(p.nombre)}</div>
+        <div class="card-meta">
+          <span class="comuna-pill">${escapeHTML(p.comuna)}</span>
+          ${p.direccion ? `<a class="maps-link" href="${googleMapsSatUrl(p.direccion,p.comuna)}" target="_blank" rel="noopener">${escapeHTML(p.direccion)} ↗</a>` : ''}
+        </div>
+        ${p.descripcion ? `<div class="card-desc">${escapeHTML(p.descripcion)}</div>` : ''}
+        <div class="stars-row">
+          <div style="display:flex;gap:2px;">${starsDisplayHTML(p.rating||0)}</div>
+          <span class="rating-num">${(p.rating||0).toFixed(1)}</span>
+        </div>
+        <div class="card-actions">
+          <button class="icon-btn" onclick="openEdit('${p.id}')">Editar</button>
+          <button class="icon-btn danger" onclick="deleteEntry('${p.id}')">Eliminar</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+/* ---------- MODAL: agregar/editar ---------- */
+function openModal(){ overlay.classList.add('open'); }
+function closeModal(){
+  overlay.classList.remove('open');
+  form.reset();
+  currentRating = 0;
+  renderStarInput();
+  $('#ratingDisplay').textContent = '0.0';
+  $('#imgPreviewWrap').innerHTML = '<div class="hint">Toca para subir una foto (se comprime automáticamente)</div>';
+  pendingImage = null;
+  editingId = null;
+}
+$('#openAddBtn').addEventListener('click', ()=>{
+  $('#modalTitle').textContent = 'Nuevo panorama';
+  $('#saveBtn').textContent = 'Guardar';
+  renderStarInput();
+  openModal();
+});
+$('#cancelBtn').addEventListener('click', closeModal);
+overlay.addEventListener('click', (e)=>{ if(e.target === overlay) closeModal(); });
+
+$('#f_image').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const maxDim = 640;
+      let w = img.width, h = img.height;
+      if(w > h && w > maxDim){ h = h*(maxDim/w); w = maxDim; }
+      else if(h > maxDim){ w = w*(maxDim/h); h = maxDim; }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      pendingImage = canvas.toDataURL('image/jpeg', 0.72);
+      $('#imgPreviewWrap').innerHTML = `<img src="${pendingImage}" alt="preview">`;
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+window.openEdit = function(id){
+  const p = panoramas.find(x=>x.id===id);
+  if(!p) return;
+  editingId = id;
+  $('#modalTitle').textContent = 'Editar panorama';
+  $('#saveBtn').textContent = 'Guardar cambios';
+  $('#f_name').value = p.nombre;
+  $('#f_tipo').value = p.tipo;
+  $('#f_comuna').value = p.comuna;
+  $('#f_direccion').value = p.direccion||'';
+  $('#f_desc').value = p.descripcion||'';
+  currentRating = p.rating||0;
+  renderStarInput();
+  $('#ratingDisplay').textContent = currentRating.toFixed(1);
+  pendingImage = p.image || null;
+  $('#imgPreviewWrap').innerHTML = p.image ? `<img src="${p.image}" alt="preview">` : '<div class="hint">Toca para subir una foto (se comprime automáticamente)</div>';
+  openModal();
+};
+
+window.deleteEntry = function(id){
+  const p = panoramas.find(x=>x.id===id);
+  if(!p) return;
+  if(!confirm(`¿Eliminar "${p.nombre}" de la lista?`)) return;
+  panoramas = panoramas.filter(x=>x.id!==id);
+  saveData();
+  render();
+  showToast('Panorama eliminado');
+};
+
+form.addEventListener('submit', (e)=>{
+  e.preventDefault();
+  const prev = editingId ? panoramas.find(x=>x.id===editingId) : null;
+  const entry = {
+    id: editingId || ('p_' + Date.now() + Math.random().toString(36).slice(2,7)),
+    nombre: $('#f_name').value.trim(),
+    tipo: $('#f_tipo').value,
+    comuna: $('#f_comuna').value.trim(),
+    direccion: $('#f_direccion').value.trim(),
+    descripcion: $('#f_desc').value.trim(),
+    rating: currentRating,
+    image: pendingImage,
+    lat: prev ? prev.lat : undefined,
+    lng: prev ? prev.lng : undefined,
+    createdAt: prev ? (prev.createdAt || Date.now()) : Date.now()
+  };
+  if(prev && (prev.direccion !== entry.direccion || prev.comuna !== entry.comuna)){
+    entry.lat = undefined; entry.lng = undefined;
+  }
+  if(editingId) panoramas = panoramas.map(x=> x.id===editingId ? entry : x);
+  else panoramas.push(entry);
+
+  saveData();
+  closeModal();
+  render();
+  showToast(editingId ? 'Cambios guardados' : 'Panorama añadido');
+});
+
+['filterComuna','filterTipo','filterRating','sortBy'].forEach(id=>{
+  $('#'+id).addEventListener('change', render);
+});
+$('#searchBox').addEventListener('input', render);
+
+/* ---------- EXPORT / IMPORT (respaldo manual, funciona siempre) ---------- */
+$('#exportBtn').addEventListener('click', ()=>{
+  const blob = new Blob([JSON.stringify(panoramas, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `panoramas-${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast('Lista exportada.');
+});
+$('#importBtn').addEventListener('click', ()=> $('#importFile').click());
+$('#importFile').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    try{
+      const incoming = JSON.parse(ev.target.result);
+      if(!Array.isArray(incoming)) throw new Error('formato inválido');
+      const byId = new Map(panoramas.map(p=>[p.id,p]));
+      incoming.forEach(p=> byId.set(p.id, p));
+      panoramas = [...byId.values()];
+      saveData();
+      render();
+      showToast(`Lista combinada: ${incoming.length} panoramas importados.`);
+    }catch(err){
+      showToast('No se pudo leer ese archivo.');
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+});
+
+/* ---------- MAPA (Leaflet + OpenStreetMap, gratis, sin clave) ---------- */
+async function geocode(query){
+  try{
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if(data && data[0]) return {lat:parseFloat(data[0].lat), lng:parseFloat(data[0].lon)};
+  }catch(e){}
+  return null;
+}
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+async function openMapView(){
+  $('#mapPanel').classList.add('open');
+  if(!mapInstance){
+    mapInstance = L.map('leafletMap').setView([-33.4489,-70.6693], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 19
+    }).addTo(mapInstance);
+    mapMarkersLayer = L.layerGroup().addTo(mapInstance);
+  }
+  setTimeout(()=> mapInstance.invalidateSize(), 50);
+
+  const candidates = panoramas.filter(p=> p.direccion || p.comuna);
+  const needGeocode = candidates.filter(p=> p.lat==null || p.lng==null);
+  const statusEl = $('#mapStatus');
+
+  if(needGeocode.length){
+    let done = 0;
+    for(const p of needGeocode){
+      statusEl.textContent = `Ubicando panoramas en el mapa... (${done+1}/${needGeocode.length})`;
+      const q = [p.direccion, p.comuna, 'Chile'].filter(Boolean).join(', ');
+      const coords = await geocode(q);
+      if(coords){ p.lat = coords.lat; p.lng = coords.lng; }
+      done++;
+      await sleep(1100);
+    }
+    saveData();
+  }
+
+  mapMarkersLayer.clearLayers();
+  const points = [];
+  candidates.filter(p=> p.lat!=null && p.lng!=null).forEach(p=>{
+    const marker = L.marker([p.lat, p.lng]).addTo(mapMarkersLayer);
+    marker.bindPopup(`
+      <div class="popup-title">${escapeHTML(p.nombre)}</div>
+      <div style="display:flex;gap:1px;margin-bottom:4px;">${starsDisplayHTML(p.rating||0)}</div>
+      <div style="color:#5B6B66;">${escapeHTML(p.comuna||'')}</div>
+      <a href="${googleMapsSatUrl(p.direccion,p.comuna)}" target="_blank" rel="noopener" style="color:#9C4A2D;">Ver en Google Maps ↗</a>
+    `);
+    points.push([p.lat, p.lng]);
+  });
+
+  if(points.length){
+    mapInstance.fitBounds(points, {padding:[30,30], maxZoom:15});
+  }
+  statusEl.textContent = points.length
+    ? `${points.length} panorama${points.length===1?'':'s'} ubicados en el mapa.`
+    : 'Añade direcciones o comunas a tus panoramas para verlos aquí.';
+}
+
+$('#mapToggleBtn').addEventListener('click', ()=>{
+  mapOpen = !mapOpen;
+  $('#mapToggleBtn').classList.toggle('active', mapOpen);
+  if(mapOpen){
+    $('#mapToggleBtn').textContent = '🗺️ Ocultar mapa';
+    openMapView();
+  } else {
+    $('#mapToggleBtn').textContent = '🗺️ Ver mapa';
+    $('#mapPanel').classList.remove('open');
+  }
+});
+
+/* ---------- SINCRONIZACIÓN EN TIEMPO REAL (Firebase Firestore) ---------- */
+function setSyncUI(state, label){
+  // state: 'on' | 'off' | 'neutral'
+  const dot = $('#syncDot');
+  dot.classList.remove('on','off');
+  if(state==='on') dot.classList.add('on');
+  if(state==='off') dot.classList.add('off');
+  $('#syncPillText').textContent = label;
+}
+
+function loadSyncConfig(){
+  try{ return JSON.parse(localStorage.getItem(SYNC_CFG_KEY) || 'null'); }catch(e){ return null; }
+}
+function persistSyncConfig(cfg, room){
+  localStorage.setItem(SYNC_CFG_KEY, JSON.stringify(cfg));
+  localStorage.setItem(SYNC_ROOM_KEY, room);
+}
+function clearSyncConfig(){
+  localStorage.removeItem(SYNC_CFG_KEY);
+  localStorage.removeItem(SYNC_ROOM_KEY);
+}
+
+function parseConfigInput(text){
+  text = text.trim();
+  if(!text) throw new Error('vacío');
+  // intenta JSON directo
+  try{ return JSON.parse(text); }catch(e){}
+  // si pegaron "const firebaseConfig = {...};" o el objeto con llaves sin comillas, lo evaluamos como literal JS
+  const match = text.match(/{[\s\S]*}/);
+  if(!match) throw new Error('No se encontró un objeto { ... } en el texto pegado.');
+  // eslint-disable-next-line no-new-func
+  return Function('"use strict"; return (' + match[0] + ');')();
+}
+
+async function connectSync(cfg, room){
+  try{
+    if(firebase.apps && firebase.apps.length){
+      await Promise.all(firebase.apps.map(a=>a.delete()));
+    }
+    firebase.initializeApp(cfg);
+    fbAuth = firebase.auth();
+    await fbAuth.signInAnonymously();
+    fbDb = firebase.firestore();
+    syncRoom = room;
+    listenRoom();
+    persistSyncConfig(cfg, room);
+    setSyncUI('on', 'Sincronizado: ' + room);
+    $('#syncStatusLine').textContent = '🟢 Conectado a la sala "' + room + '". Los cambios se sincronizan solos.';
+    $('#syncNote').textContent = 'Sincronización activa con tu pareja en la sala "' + room + '". Cualquier cambio que hagan se actualiza solo en ambos celulares.';
+    showToast('Conectado. La sincronización ya está activa.');
+  }catch(err){
+    setSyncUI('off', 'Error de conexión');
+    $('#syncStatusLine').textContent = '🔴 No se pudo conectar: ' + err.message;
+    showToast('No se pudo conectar. Revisa la configuración pegada.');
+  }
+}
+
+function listenRoom(){
+  if(unsubscribeSnapshot) unsubscribeSnapshot();
+  const ref = fbDb.collection('rooms').doc(syncRoom);
+  unsubscribeSnapshot = ref.onSnapshot(doc=>{
+    if(!doc.exists){
+      // la sala todavía no tiene datos: si ya tenemos panoramas localmente, los subimos como base inicial
+      if(panoramas.length){ pushToRoom(true); }
+      return;
+    }
+    const data = doc.data();
+    suppressPush = true;
+    panoramas = data.panoramas || [];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(panoramas));
+    render();
+    suppressPush = false;
+  }, err=>{
+    setSyncUI('off', 'Conexión perdida');
+    $('#syncStatusLine').textContent = '🔴 Se perdió la conexión: ' + err.message;
+  });
+}
+
+function pushToRoom(immediate){
+  if(!fbDb || !syncRoom || suppressPush) return;
+  clearTimeout(pushTimer);
+  const doPush = ()=>{
+    fbDb.collection('rooms').doc(syncRoom).set({
+      panoramas,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, {merge:true}).catch(()=> showToast('No se pudo sincronizar: revisa tu conexión a internet.'));
+  };
+  if(immediate) doPush();
+  else pushTimer = setTimeout(doPush, 500);
+}
+
+function disconnectSync(){
+  if(unsubscribeSnapshot){ unsubscribeSnapshot(); unsubscribeSnapshot = null; }
+  fbDb = null; fbAuth = null; syncRoom = null;
+  clearSyncConfig();
+  setSyncUI('neutral', 'Solo este celular');
+  $('#syncStatusLine').textContent = 'Estado: solo este celular (sin conectar).';
+  $('#syncNote').textContent = 'Toca "Solo este celular" arriba para conectar la sincronización en tiempo real con tu pareja.';
+  showToast('Sincronización desconectada. La lista sigue guardada en este celular.');
+}
+
+$('#syncPill').addEventListener('click', ()=>{
+  const cfg = loadSyncConfig();
+  const room = localStorage.getItem(SYNC_ROOM_KEY) || '';
+  if(cfg) $('#cfgInput').value = JSON.stringify(cfg, null, 2);
+  $('#roomCodeInput').value = room;
+  $('#syncOverlay').classList.add('open');
+});
+$('#syncCloseBtn').addEventListener('click', ()=> $('#syncOverlay').classList.remove('open'));
+$('#syncOverlay').addEventListener('click', (e)=>{ if(e.target.id==='syncOverlay') $('#syncOverlay').classList.remove('open'); });
+$('#syncConnectBtn').addEventListener('click', async ()=>{
+  const room = $('#roomCodeInput').value.trim();
+  if(!room){ showToast('Escribe un código de pareja.'); return; }
+  let cfg;
+  try{ cfg = parseConfigInput($('#cfgInput').value); }
+  catch(e){ showToast('No se pudo leer la configuración pegada.'); return; }
+  await connectSync(cfg, room);
+});
+$('#syncDisconnectBtn').addEventListener('click', ()=>{
+  disconnectSync();
+  $('#syncOverlay').classList.remove('open');
+});
+
+function tryAutoConnect(){
+  const cfg = loadSyncConfig();
+  const room = localStorage.getItem(SYNC_ROOM_KEY);
+  if(cfg && room){
+    setSyncUI('neutral', 'Conectando…');
+    connectSync(cfg, room);
+  }
+}
+
+renderStarInput();
+loadData();
+tryAutoConnect();
+</script>
+</body>
+</html>
