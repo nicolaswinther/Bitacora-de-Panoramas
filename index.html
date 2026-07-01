@@ -158,10 +158,8 @@
     padding:11px 10px; cursor:pointer;
   }
   .type-badge{
-    flex:none; width:26px; height:26px; border-radius:8px;
-    background:var(--paper); border:1.5px solid var(--ink);
-    display:inline-flex; align-items:center; justify-content:center;
-    font-size:13.5px; line-height:1;
+    flex:none; width:22px; display:inline-flex; align-items:center; justify-content:center;
+    font-size:16px; line-height:1;
   }
   .row-icon{ text-align:center; }
   .row-name{
@@ -204,9 +202,10 @@
   .detail-address a{ color:var(--rust-dark); text-decoration:none; border-bottom:1px dotted var(--rust-dark); }
   .detail-toggles{ display:flex; align-items:center; gap:2px; flex:none; }
   .toggle-icon-btn{
-    background:none; border:none; padding:4px; margin:0; cursor:pointer;
+    background:none; border:none; padding:4px; margin:0;
     display:flex; align-items:center; justify-content:center; line-height:0;
   }
+  button.toggle-icon-btn{ cursor:pointer; }
   .toggle-icon-btn svg{ width:18px; height:18px; }
   .toggle-icon-btn.big svg{ width:24px; height:24px; }
   .detail-line{ font-family:"SFMono-Regular",monospace; font-size:11px; color:var(--slate); display:flex; align-items:center; gap:6px; }
@@ -282,30 +281,32 @@
 
   /* ---------- AUTH SCREEN ---------- */
   .auth-overlay{
-    position:fixed; inset:0; background:var(--paper); z-index:200;
+    position:fixed; inset:0; width:100vw; height:100vh; box-sizing:border-box;
+    background:var(--paper); z-index:200;
     display:none; align-items:center; justify-content:center; padding:20px;
   }
   .auth-overlay.open{ display:flex; }
-  .auth-card{ width:100%; max-width:440px; margin:0 auto; }
+  .auth-card{ width:100%; max-width:440px; margin:0 auto; text-align:center; }
   .auth-card .eyebrow{ text-align:center; }
   .auth-card h1{ text-align:center; }
   .auth-card .subtitle{ text-align:center; margin-bottom:30px; }
-  .auth-card form{ display:flex; flex-direction:column; align-items:center; }
-  .auth-card .field{ margin-bottom:18px; width:100%; max-width:300px; }
+  .auth-card form{ width:100%; }
+  .auth-card .field{ margin:0 auto 18px; width:100%; max-width:300px; }
   .auth-card .field label{ text-align:center; font-size:11px; }
   .auth-card .field input{
     text-align:center; font-size:17px; padding:15px 14px; border-radius:8px;
-    letter-spacing:.01em; width:100%;
+    letter-spacing:.01em; width:100%; box-sizing:border-box;
   }
-  .auth-card #authSubmitBtn{ padding:15px; font-size:13px; border-radius:8px; margin-top:6px; width:100%; max-width:300px; }
+  .auth-card #authSubmitBtn{ display:block; margin:6px auto 0; padding:15px; font-size:13px; border-radius:8px; width:100%; max-width:300px; }
   .auth-error{
     background:#F3D9CC; border:1.5px solid var(--rust-dark); color:var(--rust-dark);
-    border-radius:5px; padding:9px 11px; font-size:12.5px; margin-bottom:12px; text-align:center;
+    border-radius:5px; padding:9px 11px; font-size:12.5px; margin:0 auto 12px; text-align:center;
     width:100%; max-width:300px;
   }
   .auth-toggle{
-    width:100%; max-width:300px; background:none; border:none; color:var(--rust-dark); text-decoration:underline;
-    font-size:12.5px; margin-top:10px; cursor:pointer; padding:6px;
+    display:block; width:100%; max-width:300px; margin:10px auto 0;
+    background:none; border:none; color:var(--rust-dark); text-decoration:underline;
+    font-size:12.5px; cursor:pointer; padding:6px;
   }
 
   @media (max-width:400px){
@@ -388,6 +389,8 @@
           <option value="rating">Mejor puntuados</option>
           <option value="recent">Más recientes</option>
           <option value="az">A–Z</option>
+          <option value="liked">Me gusta primero</option>
+          <option value="visited">Visitados primero</option>
         </select>
       </div>
       <button class="fd-logout" id="logoutBtn">Cerrar sesión</button>
@@ -520,24 +523,14 @@ const HEART_FILLED_SVG  = `<svg viewBox="0 0 24 24" fill="#B2542E" stroke="#8A3D
 
 function toggleIconsHTML(p){
   return `
-    <button class="toggle-icon-btn" onclick="event.stopPropagation(); toggleVisited('${p.id}')" title="Visitado">
+    <span class="toggle-icon-btn" title="Visitado">
       ${p.visitado ? EYE_FILLED_SVG : EYE_OUTLINE_SVG}
-    </button>
-    <button class="toggle-icon-btn" onclick="event.stopPropagation(); toggleLiked('${p.id}')" title="Me gusta">
+    </span>
+    <span class="toggle-icon-btn" title="Me gusta">
       ${p.meGusta ? HEART_FILLED_SVG : HEART_OUTLINE_SVG}
-    </button>
+    </span>
   `;
 }
-window.toggleVisited = function(id){
-  const p = panoramas.find(x=>x.id===id); if(!p) return;
-  p.visitado = !p.visitado;
-  saveData(); render();
-};
-window.toggleLiked = function(id){
-  const p = panoramas.find(x=>x.id===id); if(!p) return;
-  p.meGusta = !p.meGusta;
-  saveData(); render();
-};
 
 let panoramas = [];
 let editingId = null;
@@ -750,6 +743,8 @@ function getFiltered(){
   });
   if(sortBy === 'rating') list.sort((a,b)=> (b.rating||0)-(a.rating||0));
   else if(sortBy === 'az') list.sort((a,b)=> a.nombre.localeCompare(b.nombre));
+  else if(sortBy === 'liked') list.sort((a,b)=> (b.meGusta?1:0)-(a.meGusta?1:0) || (b.rating||0)-(a.rating||0));
+  else if(sortBy === 'visited') list.sort((a,b)=> (b.visitado?1:0)-(a.visitado?1:0) || (b.rating||0)-(a.rating||0));
   else list.sort((a,b)=> (b.createdAt||0)-(a.createdAt||0));
   return list;
 }
