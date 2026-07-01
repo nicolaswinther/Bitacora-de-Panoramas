@@ -55,7 +55,7 @@
 
   /* ---------- HEADER ---------- */
   header{
-    padding:max(18px,env(safe-area-inset-top)) 18px 14px;
+    padding:calc(env(safe-area-inset-top) + 34px) 18px 14px;
     max-width:900px; margin:0 auto; text-align:center;
   }
   .eyebrow{
@@ -159,12 +159,19 @@
   }
   .row-icon{ font-size:17px; text-align:center; }
   .row-name{
-    font-family:Georgia,"Iowan Old Style",serif; font-weight:700; font-size:14.5px;
+    font-family:Georgia,"Iowan Old Style",serif; font-weight:700; font-size:13px;
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
   .row-comuna{
-    font-family:"SFMono-Regular",monospace; font-size:10px; color:var(--slate);
+    font-family:"SFMono-Regular",monospace; font-size:9.5px; color:var(--slate);
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .row-card.expanded .row-main{ align-items:start; padding-bottom:8px; }
+  .row-card.expanded .row-main .row-name{
+    white-space:normal; overflow:visible; text-overflow:unset; line-height:1.3;
+  }
+  .row-card.expanded .row-main .row-comuna{
+    white-space:normal; overflow:visible; text-overflow:unset; line-height:1.4; padding-top:2px;
   }
   .row-rating{ display:flex; align-items:center; gap:3px; font-family:"SFMono-Regular",monospace; font-size:11px; color:var(--rust-dark); font-weight:bold; }
   .row-actions{ display:flex; gap:6px; justify-content:flex-end; }
@@ -172,9 +179,9 @@
     flex:none; width:28px; height:28px; border-radius:7px;
     background:var(--paper); border:1.5px solid var(--ink); color:var(--ink);
     display:flex; align-items:center; justify-content:center; cursor:pointer;
-    font-size:12.5px; line-height:1; padding:0;
-    box-shadow:1.5px 1.5px 0 rgba(59,42,29,0.15);
+    padding:0; box-shadow:1.5px 1.5px 0 rgba(59,42,29,0.15);
   }
+  .row-icon-btn svg{ width:14px; height:14px; }
   .row-icon-btn:active{ transform:translate(1px,1px); box-shadow:none; }
 
   .row-detail{ display:none; border-top:1.5px dashed var(--ink); padding:14px; }
@@ -261,19 +268,21 @@
   .auth-card .eyebrow{ text-align:center; }
   .auth-card h1{ text-align:center; }
   .auth-card .subtitle{ text-align:center; margin-bottom:30px; }
-  .auth-card .field{ margin-bottom:18px; }
+  .auth-card form{ display:flex; flex-direction:column; align-items:center; }
+  .auth-card .field{ margin-bottom:18px; width:100%; max-width:300px; }
   .auth-card .field label{ text-align:center; font-size:11px; }
   .auth-card .field input{
     text-align:center; font-size:17px; padding:15px 14px; border-radius:8px;
-    letter-spacing:.01em;
+    letter-spacing:.01em; width:100%;
   }
-  .auth-card #authSubmitBtn{ padding:15px; font-size:13px; border-radius:8px; margin-top:6px; }
+  .auth-card #authSubmitBtn{ padding:15px; font-size:13px; border-radius:8px; margin-top:6px; width:100%; max-width:300px; }
   .auth-error{
     background:#F3D9CC; border:1.5px solid var(--rust-dark); color:var(--rust-dark);
     border-radius:5px; padding:9px 11px; font-size:12.5px; margin-bottom:12px; text-align:center;
+    width:100%; max-width:300px;
   }
   .auth-toggle{
-    width:100%; background:none; border:none; color:var(--rust-dark); text-decoration:underline;
+    width:100%; max-width:300px; background:none; border:none; color:var(--rust-dark); text-decoration:underline;
     font-size:12.5px; margin-top:10px; cursor:pointer; padding:6px;
   }
 
@@ -703,8 +712,12 @@ function render(){
         <span class="row-comuna">${escapeHTML(p.comuna)}</span>
         <span class="row-rating">${(p.rating||0).toFixed(1)}★</span>
         <span class="row-actions">
-          <button class="row-icon-btn" onclick="event.stopPropagation(); openEdit('${p.id}')" title="Editar">✎</button>
-          <button class="row-icon-btn" onclick="event.stopPropagation(); deleteEntry('${p.id}')" title="Eliminar">🗑</button>
+          <button class="row-icon-btn" onclick="event.stopPropagation(); openEdit('${p.id}')" title="Editar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          </button>
+          <button class="row-icon-btn" onclick="event.stopPropagation(); deleteEntry('${p.id}')" title="Eliminar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          </button>
         </span>
       </div>
       <div class="row-detail">
