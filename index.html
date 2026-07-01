@@ -55,7 +55,7 @@
 
   /* ---------- HEADER ---------- */
   header{
-    padding:calc(env(safe-area-inset-top) + 34px) 18px 14px;
+    padding:calc(env(safe-area-inset-top) + 34px) 22px 14px;
     max-width:900px; margin:0 auto; text-align:center;
   }
   .eyebrow{
@@ -72,7 +72,7 @@
 
   /* ---------- TOOLBAR ---------- */
   .toolbar{
-    max-width:900px; margin:14px auto 0; padding:0 18px;
+    max-width:900px; margin:14px auto 0; padding:0 22px;
     display:flex; align-items:center; gap:9px; position:relative;
     width:100%;
   }
@@ -128,7 +128,7 @@
   .fd-logout:active{ background:var(--rust-dark); color:var(--paper-light); }
 
   /* ---------- MAP PANEL ---------- */
-  .map-panel{ max-width:900px; margin:14px auto 0; padding:0 18px; display:none; }
+  .map-panel{ max-width:900px; margin:14px auto 0; padding:0 22px; display:none; }
   .map-panel.open{ display:block; }
   #leafletMap{ height:340px; width:100%; border:2px solid var(--ink); border-radius:8px; background:var(--paper-light); }
   .map-status{ font-family:"SFMono-Regular",monospace; font-size:10.5px; color:var(--slate); margin-top:6px; }
@@ -141,7 +141,7 @@
   .emoji-pin span{ transform:rotate(45deg); font-size:15px; }
 
   /* ---------- LIST / TABLE ---------- */
-  .list{ max-width:900px; margin:32px auto 70px; padding:0 18px; }
+  .list{ max-width:900px; margin:32px auto 70px; padding:0 22px; }
   .list-head{
     display:grid; grid-template-columns:30px 1fr 90px 80px 68px; gap:8px; align-items:center;
     padding:0 10px 8px; font-family:"SFMono-Regular",monospace; font-size:9px;
@@ -157,7 +157,13 @@
     display:grid; grid-template-columns:30px 1fr 90px 80px 68px; gap:8px; align-items:center;
     padding:11px 10px; cursor:pointer;
   }
-  .row-icon{ font-size:17px; text-align:center; }
+  .type-badge{
+    flex:none; width:26px; height:26px; border-radius:8px;
+    background:var(--paper); border:1.5px solid var(--ink);
+    display:inline-flex; align-items:center; justify-content:center;
+    font-size:13.5px; line-height:1;
+  }
+  .row-icon{ text-align:center; }
   .row-name{
     font-family:Georgia,"Iowan Old Style",serif; font-weight:700; font-size:13px;
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
@@ -193,14 +199,30 @@
     font-family:"SFMono-Regular",monospace; text-align:center;
   }
   .detail-info{ flex:1; min-width:160px; display:flex; flex-direction:column; gap:6px; }
-  .detail-line{ font-family:"SFMono-Regular",monospace; font-size:11px; color:var(--slate); }
-  .detail-line a{ color:var(--rust-dark); text-decoration:none; border-bottom:1px dotted var(--rust-dark); }
+  .detail-toprow{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .detail-address{ flex:1; min-width:0; font-family:"SFMono-Regular",monospace; font-size:11px; overflow-wrap:anywhere; }
+  .detail-address a{ color:var(--rust-dark); text-decoration:none; border-bottom:1px dotted var(--rust-dark); }
+  .detail-toggles{ display:flex; align-items:center; gap:2px; flex:none; }
+  .toggle-icon-btn{
+    background:none; border:none; padding:4px; margin:0; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; line-height:0;
+  }
+  .toggle-icon-btn svg{ width:18px; height:18px; }
+  .toggle-icon-btn.big svg{ width:24px; height:24px; }
+  .detail-line{ font-family:"SFMono-Regular",monospace; font-size:11px; color:var(--slate); display:flex; align-items:center; gap:6px; }
   .detail-stars{ display:flex; align-items:center; gap:6px; }
   .detail-desc{ font-size:13px; line-height:1.5; color:var(--ink); opacity:.88; }
   .star-disp{ position:relative; width:14px; height:14px; display:inline-block; }
   .star-disp svg{ position:absolute; top:0; left:0; width:14px; height:14px; }
 
-  .empty-state{ max-width:900px; margin:60px auto; padding:0 18px; text-align:center; color:var(--slate); }
+  .modal-toggle-row{
+    display:flex; align-items:center; justify-content:center; gap:22px;
+    padding:10px; background:var(--paper); border:1.5px solid var(--ink); border-radius:7px;
+  }
+  .modal-toggle-item{ display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .modal-toggle-item span{ font-family:"SFMono-Regular",monospace; font-size:9.5px; color:var(--slate); text-transform:uppercase; letter-spacing:.04em; }
+
+  .empty-state{ max-width:900px; margin:60px auto; padding:0 22px; text-align:center; color:var(--slate); }
   .empty-state .stamp{ font-size:36px; margin-bottom:8px; }
 
   /* ---------- MODAL: add/edit ---------- */
@@ -405,16 +427,16 @@
         <div class="field">
           <label>Tipo de actividad</label>
           <select id="f_tipo">
-            <option>Cafetería</option>
-            <option>Restaurante</option>
-            <option>Bar</option>
-            <option>Música</option>
-            <option>Teatro</option>
-            <option>Museo / Cultural</option>
-            <option>Galería</option>
-            <option>Parque de diversiones</option>
-            <option>Parque / Naturaleza</option>
-            <option>Otro</option>
+            <option value="Cafetería">☕ Cafetería</option>
+            <option value="Restaurante">🍽️ Restaurante</option>
+            <option value="Bar">🍺 Bar</option>
+            <option value="Música">🎵 Música</option>
+            <option value="Teatro">🎭 Teatro</option>
+            <option value="Museo / Cultural">🏛️ Museo / Cultural</option>
+            <option value="Galería">🎨 Galería</option>
+            <option value="Parque de diversiones">🎡 Parque de diversiones</option>
+            <option value="Parque / Naturaleza">🌲 Parque / Naturaleza</option>
+            <option value="Otro">📍 Otro</option>
           </select>
         </div>
         <div class="field">
@@ -445,6 +467,19 @@
           <button type="button" class="clear-rating" id="clearRating">borrar</button>
         </div>
       </div>
+      <div class="field">
+        <label>¿Lo visitaron? / ¿Les gustó?</label>
+        <div class="modal-toggle-row">
+          <div class="modal-toggle-item">
+            <button type="button" class="toggle-icon-btn big" id="modalVisitedBtn"></button>
+            <span>Visitado</span>
+          </div>
+          <div class="modal-toggle-item">
+            <button type="button" class="toggle-icon-btn big" id="modalLikedBtn"></button>
+            <span>Me gusta</span>
+          </div>
+        </div>
+      </div>
       <div class="modal-actions">
         <button type="button" class="btn ghost" id="cancelBtn">Cancelar</button>
         <button type="submit" class="btn primary" id="saveBtn">Guardar</button>
@@ -472,15 +507,44 @@ const fbDb = firebase.firestore();
 
 const STORAGE_KEY = 'panoramas-cache-v2';
 const TYPE_ICONS = {
-  'Cafetería':'☕', 'Restaurante':'🍽️', 'Bar':'🍺', 'Música':'🎵', 'Teatro':'🎫',
+  'Cafetería':'☕', 'Restaurante':'🍽️', 'Bar':'🍺', 'Música':'🎵', 'Teatro':'🎭',
   'Museo / Cultural':'🏛️', 'Galería':'🎨', 'Parque de diversiones':'🎡',
   'Parque / Naturaleza':'🌲', 'Otro':'📍'
+};
+
+/* ---- íconos de "visitado" (ojo) y "me gusta" (corazón) ---- */
+const EYE_OUTLINE_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="var(--slate)" stroke-width="1.6" stroke-dasharray="2.2 2.4" stroke-linecap="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const EYE_FILLED_SVG   = `<svg viewBox="0 0 24 24" fill="none" stroke="var(--olive-dark)" stroke-width="1.8"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z" fill="var(--olive)" fill-opacity="0.25"/><circle cx="12" cy="12" r="3" fill="var(--olive-dark)"/></svg>`;
+const HEART_OUTLINE_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="var(--slate)" stroke-width="1.6" stroke-dasharray="2.2 2.4" stroke-linecap="round"><path d="M12 21s-6.7-4.35-9.6-8.6C.6 9 2.2 5 6.2 5c2 0 3.5 1.2 5.8 3.3C14.3 6.2 15.8 5 17.8 5c4 0 5.6 4 3.6 7.4C18.7 16.65 12 21 12 21Z"/></svg>`;
+const HEART_FILLED_SVG  = `<svg viewBox="0 0 24 24" fill="#B2542E" stroke="#8A3D1E" stroke-width="1"><path d="M12 21s-6.7-4.35-9.6-8.6C.6 9 2.2 5 6.2 5c2 0 3.5 1.2 5.8 3.3C14.3 6.2 15.8 5 17.8 5c4 0 5.6 4 3.6 7.4C18.7 16.65 12 21 12 21Z"/></svg>`;
+
+function toggleIconsHTML(p){
+  return `
+    <button class="toggle-icon-btn" onclick="event.stopPropagation(); toggleVisited('${p.id}')" title="Visitado">
+      ${p.visitado ? EYE_FILLED_SVG : EYE_OUTLINE_SVG}
+    </button>
+    <button class="toggle-icon-btn" onclick="event.stopPropagation(); toggleLiked('${p.id}')" title="Me gusta">
+      ${p.meGusta ? HEART_FILLED_SVG : HEART_OUTLINE_SVG}
+    </button>
+  `;
+}
+window.toggleVisited = function(id){
+  const p = panoramas.find(x=>x.id===id); if(!p) return;
+  p.visitado = !p.visitado;
+  saveData(); render();
+};
+window.toggleLiked = function(id){
+  const p = panoramas.find(x=>x.id===id); if(!p) return;
+  p.meGusta = !p.meGusta;
+  saveData(); render();
 };
 
 let panoramas = [];
 let editingId = null;
 let pendingImage = null;
 let currentRating = 0;
+let currentVisited = false;
+let currentLiked = false;
 let expandedIds = new Set();
 let mapInstance = null, mapOpen = false, mapMarkersLayer = null;
 let unsubscribeSnapshot = null;
@@ -647,6 +711,13 @@ $('#clearRating').addEventListener('click', ()=>{
   currentRating = 0; renderStarInput(); $('#ratingDisplay').textContent = '0.0';
 });
 
+function renderModalToggles(){
+  $('#modalVisitedBtn').innerHTML = currentVisited ? EYE_FILLED_SVG : EYE_OUTLINE_SVG;
+  $('#modalLikedBtn').innerHTML = currentLiked ? HEART_FILLED_SVG : HEART_OUTLINE_SVG;
+}
+$('#modalVisitedBtn').addEventListener('click', ()=>{ currentVisited = !currentVisited; renderModalToggles(); });
+$('#modalLikedBtn').addEventListener('click', ()=>{ currentLiked = !currentLiked; renderModalToggles(); });
+
 function googleMapsSatUrl(direccion, comuna){
   const q = [direccion, comuna, 'Chile'].filter(Boolean).join(', ');
   return `https://maps.google.com/maps?q=${encodeURIComponent(q)}&t=k`;
@@ -659,7 +730,7 @@ function populateFilterOptions(){
   const comunas = [...new Set(panoramas.map(p=>p.comuna).filter(Boolean))].sort();
   const tipos = [...new Set(panoramas.map(p=>p.tipo).filter(Boolean))].sort();
   comunaSel.innerHTML = '<option value="">Todas</option>' + comunas.map(c=>`<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join('');
-  tipoSel.innerHTML = '<option value="">Todas</option>' + tipos.map(t=>`<option value="${escapeHTML(t)}">${escapeHTML(t)}</option>`).join('');
+  tipoSel.innerHTML = '<option value="">Todas</option>' + tipos.map(t=>`<option value="${escapeHTML(t)}">${TYPE_ICONS[t]||'📍'} ${escapeHTML(t)}</option>`).join('');
   comunaSel.value = cC; tipoSel.value = cT;
 }
 function getFiltered(){
@@ -707,7 +778,7 @@ function render(){
     return `
     <div class="row-card ${expanded?'expanded':''}" data-id="${p.id}">
       <div class="row-main" onclick="toggleExpand('${p.id}')">
-        <span class="row-icon">${icon}</span>
+        <span class="row-icon type-badge">${icon}</span>
         <span class="row-name">${escapeHTML(p.nombre)}</span>
         <span class="row-comuna">${escapeHTML(p.comuna)}</span>
         <span class="row-rating">${(p.rating||0).toFixed(1)}★</span>
@@ -723,8 +794,11 @@ function render(){
       <div class="row-detail">
         <div class="detail-img" style="${p.image?`background-image:url('${p.image}')`:''}">${p.image?'':'sin imagen'}</div>
         <div class="detail-info">
-          ${p.direccion ? `<div class="detail-line"><a href="${googleMapsSatUrl(p.direccion,p.comuna)}" target="_blank" rel="noopener">${escapeHTML(p.direccion)} ↗</a></div>` : ''}
-          <div class="detail-line">${icon} ${escapeHTML(p.tipo)}</div>
+          <div class="detail-toprow">
+            <span class="detail-address">${p.direccion ? `<a href="${googleMapsSatUrl(p.direccion,p.comuna)}" target="_blank" rel="noopener">${escapeHTML(p.direccion)} ↗</a>` : ''}</span>
+            <span class="detail-toggles">${toggleIconsHTML(p)}</span>
+          </div>
+          <div class="detail-line"><span class="type-badge">${icon}</span>${escapeHTML(p.tipo)}</div>
           <div class="detail-stars">${starsDisplayHTML(p.rating||0)}<span class="row-rating">${(p.rating||0).toFixed(1)}</span></div>
           ${p.descripcion ? `<div class="detail-desc">${escapeHTML(p.descripcion)}</div>` : ''}
         </div>
@@ -744,6 +818,7 @@ function openModal(){ overlay.classList.add('open'); }
 function closeModal(){
   overlay.classList.remove('open'); form.reset();
   currentRating = 0; renderStarInput(); $('#ratingDisplay').textContent='0.0';
+  currentVisited = false; currentLiked = false; renderModalToggles();
   $('#imgPreviewWrap').innerHTML = '<div class="hint">Toca para subir una foto</div>';
   pendingImage = null; editingId = null;
 }
@@ -751,6 +826,7 @@ $('#openAddBtn').addEventListener('click', ()=>{
   $('#modalTitle').textContent = 'Nuevo panorama';
   $('#saveBtn').textContent = 'Guardar';
   renderStarInput();
+  currentVisited = false; currentLiked = false; renderModalToggles();
   openModal();
 });
 $('#cancelBtn').addEventListener('click', closeModal);
@@ -792,6 +868,7 @@ window.openEdit = function(id){
   currentRating = p.rating||0;
   renderStarInput();
   $('#ratingDisplay').textContent = currentRating.toFixed(1);
+  currentVisited = !!p.visitado; currentLiked = !!p.meGusta; renderModalToggles();
   pendingImage = p.image || null;
   $('#imgPreviewWrap').innerHTML = p.image ? `<img src="${p.image}" alt="preview">` : '<div class="hint">Toca para subir una foto</div>';
   openModal();
@@ -818,6 +895,8 @@ form.addEventListener('submit', (e)=>{
     direccion: $('#f_direccion').value.trim(),
     descripcion: $('#f_desc').value.trim(),
     rating: currentRating,
+    visitado: currentVisited,
+    meGusta: currentLiked,
     image: pendingImage,
     lat: prev ? prev.lat : undefined,
     lng: prev ? prev.lng : undefined,
@@ -915,6 +994,7 @@ $('#mapToggleBtn').addEventListener('click', ()=>{
 });
 
 renderStarInput();
+renderModalToggles();
 </script>
 </body>
 </html>
