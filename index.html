@@ -600,7 +600,6 @@ let currentLiked = false;
 let expandedIds = new Set();
 let mapInstance = null, mapOpen = false, mapMarkersLayer = null;
 let unsubscribeSnapshot = null;
-let suppressPush = false, pushTimer = null;
 let currentUid = null;
 let authMode = 'login';
 
@@ -674,7 +673,7 @@ fbAuth.onAuthStateChanged(user=>{
     $('#authOverlay').classList.remove('open');
     $('#appRoot').classList.add('visible');
     loadLocalCache();
-    listenRoom();
+    migrateLegacyIfNeeded(user.uid).finally(()=> listenRoom());
   } else {
     currentUid = null;
     if(unsubscribeSnapshot){ unsubscribeSnapshot(); unsubscribeSnapshot = null; }
@@ -683,7 +682,10 @@ fbAuth.onAuthStateChanged(user=>{
   }
 });
 
-/* ================= DATOS: CACHE LOCAL + FIRESTORE EN TIEMPO REAL ================= */
+/* ================= DATOS: CACHE LOCAL + FIRESTORE EN TIEMPO REAL =================
+   Cada panorama vive en su PROPIO documento (rooms/{uid}/panoramas/{id}).
+   Así, si un celular estaba desactualizado, al guardar solo toca su propio
+   panorama y nunca puede sobrescribir/borrar lo que agregó el otro celular. */
 function loadLocalCache(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -694,35 +696,43 @@ function loadLocalCache(){
 function persistLocalCache(){
   try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(panoramas)); }catch(e){}
 }
+function panoramasCol(){
+  return fbDb.collection('rooms').doc(currentUid).collection('panoramas');
+}
+async function migrateLegacyIfNeeded(uid){
+  try{
+    const col = fbDb.collection('rooms').doc(uid).collection('panoramas');
+    const existing = await col.limit(1).get();
+    if(!existing.empty) return;
+    const roomDoc = await fbDb.collection('rooms').doc(uid).get();
+    if(!roomDoc.exists) return;
+    const legacy = (roomDoc.data() && roomDoc.data().panoramas) || [];
+    if(!legacy.length) return;
+    const batch = fbDb.batch();
+    legacy.forEach(p=>{ if(p && p.id) batch.set(col.doc(p.id), p); });
+    await batch.commit();
+  }catch(e){
+    showToast('No se pudo migrar la lista anterior: revisa tu conexión.');
+  }
+}
 function listenRoom(){
-  const ref = fbDb.collection('rooms').doc(currentUid);
-  unsubscribeSnapshot = ref.onSnapshot(doc=>{
-    if(!doc.exists){
-      if(panoramas.length) pushToRoom(true);
-      return;
-    }
-    suppressPush = true;
-    panoramas = (doc.data() && doc.data().panoramas) || [];
+  unsubscribeSnapshot = panoramasCol().onSnapshot(snapshot=>{
+    panoramas = snapshot.docs.map(d=>d.data());
     persistLocalCache();
     render();
-    suppressPush = false;
   }, err=>{
     showToast('Se perdió la conexión con la nube. Los cambios se guardan localmente.');
   });
 }
-function pushToRoom(immediate){
-  if(!currentUid || suppressPush) return;
-  clearTimeout(pushTimer);
-  const doPush = ()=>{
-    fbDb.collection('rooms').doc(currentUid).set({
-      panoramas, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, {merge:true}).catch(()=> showToast('No se pudo sincronizar: revisa tu conexión.'));
-  };
-  if(immediate) doPush(); else pushTimer = setTimeout(doPush, 500);
+function upsertPanoramaRemote(entry){
+  if(!currentUid) return;
+  panoramasCol().doc(entry.id).set(entry)
+    .catch(()=> showToast('No se pudo sincronizar este panorama: revisa tu conexión.'));
 }
-function saveData(){
-  persistLocalCache();
-  pushToRoom();
+function deletePanoramaRemote(id){
+  if(!currentUid) return;
+  panoramasCol().doc(id).delete()
+    .catch(()=> showToast('No se pudo eliminar en la nube: revisa tu conexión.'));
 }
 
 /* ================= ESTRELLAS ================= */
@@ -1017,7 +1027,9 @@ window.deleteEntry = function(id){
   if(!confirm(`¿Eliminar "${p.nombre}" de la lista?`)) return;
   panoramas = panoramas.filter(x=>x.id!==id);
   expandedIds.delete(id);
-  saveData(); render();
+  persistLocalCache();
+  deletePanoramaRemote(id);
+  render();
   showToast('Panorama eliminado');
 };
 
@@ -1035,16 +1047,18 @@ form.addEventListener('submit', (e)=>{
     visitado: currentVisited,
     meGusta: currentLiked,
     image: pendingImage,
-    lat: prev ? prev.lat : undefined,
-    lng: prev ? prev.lng : undefined,
+    lat: (prev && prev.lat != null) ? prev.lat : null,
+    lng: (prev && prev.lng != null) ? prev.lng : null,
     createdAt: prev ? (prev.createdAt || Date.now()) : Date.now()
   };
   if(prev && (prev.direccion !== entry.direccion || prev.comuna !== entry.comuna)){
-    entry.lat = undefined; entry.lng = undefined;
+    entry.lat = null; entry.lng = null;
   }
   if(editingId) panoramas = panoramas.map(x=> x.id===editingId ? entry : x);
   else panoramas.push(entry);
-  saveData(); closeModal(); render();
+  persistLocalCache();
+  upsertPanoramaRemote(entry);
+  closeModal(); render();
   showToast(editingId ? 'Cambios guardados' : 'Panorama añadido');
 });
 
@@ -1100,11 +1114,11 @@ async function openMapView(){
       statusEl.textContent = `Ubicando panoramas... (${done+1}/${needGeocode.length})`;
       const q = [p.direccion, p.comuna, 'Chile'].filter(Boolean).join(', ');
       const coords = await geocode(q);
-      if(coords){ p.lat = coords.lat; p.lng = coords.lng; }
+      if(coords){ p.lat = coords.lat; p.lng = coords.lng; upsertPanoramaRemote(p); }
       done++;
       await sleep(1100);
     }
-    saveData();
+    persistLocalCache();
   }
 
   mapMarkersLayer.clearLayers();
