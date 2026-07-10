@@ -128,7 +128,7 @@
   .fd-logout:active{ background:var(--rust-dark); color:var(--paper-light); }
 
   /* ---------- MAP PANEL ---------- */
-  .map-panel{ max-width:900px; margin:14px auto 0; padding:0 22px; display:none; }
+  .map-panel{ max-width:900px; margin:14px auto 0; padding:0 22px; display:none; position:relative; z-index:1; }
   .map-panel.open{ display:block; }
   #leafletMap{ height:340px; width:100%; border:2px solid var(--ink); border-radius:8px; background:var(--paper-light); }
   .map-status{ font-family:"SFMono-Regular",monospace; font-size:10.5px; color:var(--slate); margin-top:6px; }
@@ -1081,12 +1081,25 @@ document.addEventListener('click', (e)=>{
 $('#searchBox').addEventListener('input', render);
 
 /* ================= MAPA ================= */
-async function geocode(query){
+async function geocode(direccion, comuna){
   try{
-    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    if(data && data[0]) return {lat:parseFloat(data[0].lat), lng:parseFloat(data[0].lon)};
+    if(direccion && comuna){
+      const params = new URLSearchParams({
+        format:'json', limit:'1',
+        street: direccion,
+        city: comuna,
+        country: 'Chile'
+      });
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`);
+      const data = await res.json();
+      if(data && data[0]) return {lat:parseFloat(data[0].lat), lng:parseFloat(data[0].lon)};
+    }
+    // respaldo: búsqueda libre si la estructurada no encontró nada
+    const q = [direccion, comuna, 'Chile'].filter(Boolean).join(', ');
+    if(!q) return null;
+    const res2 = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`);
+    const data2 = await res2.json();
+    if(data2 && data2[0]) return {lat:parseFloat(data2[0].lat), lng:parseFloat(data2[0].lon)};
   }catch(e){}
   return null;
 }
@@ -1112,8 +1125,7 @@ async function openMapView(){
     let done = 0;
     for(const p of needGeocode){
       statusEl.textContent = `Ubicando panoramas... (${done+1}/${needGeocode.length})`;
-      const q = [p.direccion, p.comuna, 'Chile'].filter(Boolean).join(', ');
-      const coords = await geocode(q);
+      const coords = await geocode(p.direccion, p.comuna);
       if(coords){ p.lat = coords.lat; p.lng = coords.lng; upsertPanoramaRemote(p); }
       done++;
       await sleep(1100);
