@@ -720,6 +720,7 @@ function listenRoom(){
     panoramas = snapshot.docs.map(d=>d.data());
     persistLocalCache();
     render();
+    if(mapOpen) updateMapMarkers();
   }, err=>{
     showToast('Se perdió la conexión con la nube. Los cambios se guardan localmente.');
   });
@@ -1030,6 +1031,7 @@ window.deleteEntry = function(id){
   persistLocalCache();
   deletePanoramaRemote(id);
   render();
+  if(mapOpen) updateMapMarkers();
   showToast('Panorama eliminado');
 };
 
@@ -1059,6 +1061,7 @@ form.addEventListener('submit', (e)=>{
   persistLocalCache();
   upsertPanoramaRemote(entry);
   closeModal(); render();
+  if(mapOpen) updateMapMarkers();
   showToast(editingId ? 'Cambios guardados' : 'Panorama añadido');
 });
 
@@ -1075,10 +1078,14 @@ document.addEventListener('click', (e)=>{
     $('#filterToggleBtn').classList.remove('active');
   }
 });
+function applyFiltersEverywhere(){
+  render();
+  if(mapOpen) updateMapMarkers();
+}
 ['filterComuna','filterTipo','filterRating','filterVisitado','filterLiked','sortBy'].forEach(id=>{
-  $('#'+id).addEventListener('change', render);
+  $('#'+id).addEventListener('change', applyFiltersEverywhere);
 });
-$('#searchBox').addEventListener('input', render);
+$('#searchBox').addEventListener('input', applyFiltersEverywhere);
 
 /* ================= MAPA ================= */
 async function geocode(direccion, comuna){
@@ -1117,8 +1124,8 @@ async function openMapView(){
   }
   setTimeout(()=> mapInstance.invalidateSize(), 50);
 
-  const candidates = panoramas.filter(p=> p.direccion || p.comuna);
-  const needGeocode = candidates.filter(p=> p.lat==null || p.lng==null);
+  const allCandidates = panoramas.filter(p=> p.direccion || p.comuna);
+  const needGeocode = allCandidates.filter(p=> p.lat==null || p.lng==null);
   const statusEl = $('#mapStatus');
 
   if(needGeocode.length){
@@ -1133,9 +1140,17 @@ async function openMapView(){
     persistLocalCache();
   }
 
+  updateMapMarkers();
+}
+
+function updateMapMarkers(){
+  if(!mapInstance || !mapMarkersLayer) return;
+  const statusEl = $('#mapStatus');
+  const filtered = getFiltered().filter(p=> p.lat!=null && p.lng!=null);
+
   mapMarkersLayer.clearLayers();
   const points = [];
-  candidates.filter(p=> p.lat!=null && p.lng!=null).forEach(p=>{
+  filtered.forEach(p=>{
     const icon = TYPE_ICONS[p.tipo] || '📍';
     const marker = L.marker([p.lat, p.lng], {icon: emojiIcon(icon)}).addTo(mapMarkersLayer);
     marker.bindPopup(`
@@ -1147,7 +1162,9 @@ async function openMapView(){
     points.push([p.lat, p.lng]);
   });
   if(points.length) mapInstance.fitBounds(points, {padding:[30,30], maxZoom:15});
-  statusEl.textContent = points.length ? `${points.length} panorama${points.length===1?'':'s'} ubicados.` : 'Añade direcciones o comunas para verlos aquí.';
+  statusEl.textContent = points.length
+    ? `${points.length} panorama${points.length===1?'':'s'} ubicados (según filtros activos).`
+    : 'Ningún panorama con coordenadas coincide con los filtros actuales.';
 }
 
 $('#mapToggleBtn').addEventListener('click', ()=>{
