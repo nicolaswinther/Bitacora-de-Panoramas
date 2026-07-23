@@ -141,7 +141,19 @@
   .emoji-pin span{ transform:rotate(45deg); font-size:15px; }
 
   /* ---------- LIST / TABLE ---------- */
-  .list{ max-width:900px; margin:32px auto 70px; padding:0 22px; }
+  .tabs-row{
+    max-width:900px; margin:18px auto 0; padding:0 22px;
+    display:flex; gap:8px;
+  }
+  .tab-btn{
+    flex:1; padding:10px 8px; border-radius:20px; border:1.5px solid var(--ink);
+    background:var(--paper-light); color:var(--ink); cursor:pointer;
+    font-family:"SFMono-Regular",monospace; font-size:11.5px; text-transform:uppercase; letter-spacing:.03em;
+  }
+  .tab-btn.active{ background:var(--olive); border-color:var(--olive-dark); color:var(--paper-light); }
+  .tab-btn:active{ transform:translate(1px,1px); }
+
+  .list{ max-width:900px; margin:16px auto 70px; padding:0 22px; }
   .list-head{
     display:grid; grid-template-columns:30px 1fr 90px 80px 68px; gap:8px; align-items:center;
     padding:0 10px 8px; font-family:"SFMono-Regular",monospace; font-size:9px;
@@ -241,7 +253,12 @@
     width:100%; padding:10px 11px; border:1.5px solid var(--ink); border-radius:5px; background:var(--paper);
     font-family:-apple-system,sans-serif; color:var(--ink);
   }
-  .field textarea{ resize:vertical; min-height:56px; }
+  .field textarea{ resize:none; min-height:56px; overflow:hidden; }
+  .desc-counter{
+    font-family:"SFMono-Regular",monospace; font-size:9.5px; color:var(--slate);
+    text-align:right; margin-top:4px;
+  }
+  .desc-counter.limit{ color:var(--rust-dark); }
   .row-2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 
   .star-input-row{ display:flex; align-items:center; gap:10px; }
@@ -407,22 +424,6 @@
         </select>
       </div>
       <div class="fd-field">
-        <label>Visitados</label>
-        <select id="filterVisitado">
-          <option value="">Todos</option>
-          <option value="yes">Solo visitados</option>
-          <option value="no">No visitados</option>
-        </select>
-      </div>
-      <div class="fd-field">
-        <label>Me gusta</label>
-        <select id="filterLiked">
-          <option value="">Todos</option>
-          <option value="yes">Solo me gusta</option>
-          <option value="no">No marcados</option>
-        </select>
-      </div>
-      <div class="fd-field">
         <label>Ordenar por</label>
         <select id="sortBy">
           <option value="rating">Mejor puntuados</option>
@@ -439,6 +440,12 @@
   <div class="map-panel" id="mapPanel">
     <div id="leafletMap"></div>
     <div class="map-status" id="mapStatus"></div>
+  </div>
+
+  <div class="tabs-row" id="tabsRow">
+    <button class="tab-btn active" data-tab="todos">Todos</button>
+    <button class="tab-btn" data-tab="liked">Me gusta</button>
+    <button class="tab-btn" data-tab="visited">Visitados</button>
   </div>
 
   <div class="list">
@@ -492,7 +499,8 @@
       </div>
       <div class="field">
         <label>Descripción / palabras clave</label>
-        <textarea id="f_desc" placeholder="Ej: luz natural, plantas colgantes, rincón para leer..."></textarea>
+        <textarea id="f_desc" rows="2" placeholder="Ej: luz natural, plantas colgantes, rincón para leer..."></textarea>
+        <div class="desc-counter" id="descCounter">0 / 100 palabras</div>
       </div>
       <div class="field">
         <label>Imagen de referencia</label>
@@ -599,6 +607,7 @@ let currentVisited = false;
 let currentLiked = false;
 let expandedIds = new Set();
 let mapInstance = null, mapOpen = false, mapMarkersLayer = null;
+let activeTab = 'todos';
 let unsubscribeSnapshot = null;
 let currentUid = null;
 let authMode = 'login';
@@ -799,18 +808,14 @@ function populateFilterOptions(){
 function getFiltered(){
   const comuna = $('#filterComuna').value, tipo = $('#filterTipo').value;
   const minRating = parseFloat($('#filterRating').value)||0;
-  const visitadoF = $('#filterVisitado').value;
-  const likedF = $('#filterLiked').value;
   const search = $('#searchBox').value.trim().toLowerCase();
   const sortBy = $('#sortBy').value;
   let list = panoramas.filter(p=>{
+    if(activeTab === 'liked' && !p.meGusta) return false;
+    if(activeTab === 'visited' && !p.visitado) return false;
     if(comuna && p.comuna !== comuna) return false;
     if(tipo && p.tipo !== tipo) return false;
     if((p.rating||0) < minRating) return false;
-    if(visitadoF === 'yes' && !p.visitado) return false;
-    if(visitadoF === 'no' && p.visitado) return false;
-    if(likedF === 'yes' && !p.meGusta) return false;
-    if(likedF === 'no' && p.meGusta) return false;
     if(search){
       const hay = (p.nombre+' '+p.descripcion+' '+p.comuna+' '+p.tipo).toLowerCase();
       if(!hay.includes(search)) return false;
@@ -886,12 +891,36 @@ window.toggleExpand = function(id){
 /* ================= MODAL AGREGAR/EDITAR ================= */
 const overlay = $('#overlay'), form = $('#form');
 function openModal(){ overlay.classList.add('open'); }
+function autoGrowDesc(){
+  const el = $('#f_desc');
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+function enforceDescWordLimit(){
+  const el = $('#f_desc');
+  const max = 100;
+  const words = el.value.split(/\s+/).filter(Boolean);
+  if(words.length > max){
+    el.value = words.slice(0, max).join(' ') + (/\s$/.test(el.value) ? ' ' : '');
+  }
+  const count = el.value.trim() ? el.value.trim().split(/\s+/).filter(Boolean).length : 0;
+  const counterEl = $('#descCounter');
+  counterEl.textContent = `${count} / ${max} palabras`;
+  counterEl.classList.toggle('limit', count >= max);
+}
+$('#f_desc').addEventListener('input', ()=>{
+  enforceDescWordLimit();
+  autoGrowDesc();
+});
+
 function closeModal(){
   overlay.classList.remove('open'); form.reset();
   currentRating = 0; renderStarInput(); $('#ratingDisplay').textContent='0.0';
   currentVisited = false; currentLiked = false; renderModalToggles();
   $('#imgPreviewWrap').innerHTML = '<div class="hint">Toca para subir una foto</div>';
   pendingImage = null; editingId = null;
+  $('#f_desc').style.height = 'auto';
+  enforceDescWordLimit();
 }
 $('#openAddBtn').addEventListener('click', ()=>{
   $('#modalTitle').textContent = 'Nuevo panorama';
@@ -899,6 +928,7 @@ $('#openAddBtn').addEventListener('click', ()=>{
   renderStarInput();
   currentVisited = false; currentLiked = false; renderModalToggles();
   openModal();
+  setTimeout(autoGrowDesc, 0);
 });
 $('#cancelBtn').addEventListener('click', closeModal);
 overlay.addEventListener('click', (e)=>{ if(e.target === overlay) closeModal(); });
@@ -1013,6 +1043,7 @@ window.openEdit = function(id){
   $('#f_comuna').value = p.comuna;
   $('#f_direccion').value = p.direccion||'';
   $('#f_desc').value = p.descripcion||'';
+  enforceDescWordLimit();
   currentRating = p.rating||0;
   renderStarInput();
   $('#ratingDisplay').textContent = currentRating.toFixed(1);
@@ -1020,6 +1051,7 @@ window.openEdit = function(id){
   pendingImage = p.image || null;
   $('#imgPreviewWrap').innerHTML = p.image ? `<img src="${p.image}" alt="preview">` : '<div class="hint">Toca para subir una foto</div>';
   openModal();
+  setTimeout(autoGrowDesc, 0);
 };
 
 window.deleteEntry = function(id){
@@ -1082,10 +1114,17 @@ function applyFiltersEverywhere(){
   render();
   if(mapOpen) updateMapMarkers();
 }
-['filterComuna','filterTipo','filterRating','filterVisitado','filterLiked','sortBy'].forEach(id=>{
+['filterComuna','filterTipo','filterRating','sortBy'].forEach(id=>{
   $('#'+id).addEventListener('change', applyFiltersEverywhere);
 });
 $('#searchBox').addEventListener('input', applyFiltersEverywhere);
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    activeTab = btn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b=> b.classList.toggle('active', b===btn));
+    applyFiltersEverywhere();
+  });
+});
 
 /* ================= MAPA ================= */
 async function geocode(direccion, comuna){
