@@ -241,7 +241,7 @@
   .detail-toprow{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
   .detail-address{ flex:1; min-width:0; font-family:"SFMono-Regular",monospace; font-size:11px; overflow-wrap:anywhere; }
   .detail-address a{ color:var(--rust-dark); text-decoration:none; border-bottom:1px dotted var(--rust-dark); }
-  .detail-toggles{ display:flex; align-items:center; gap:2px; flex:none; }
+  .detail-toggles{ display:flex; align-items:center; gap:5px; flex:none; }
   .toggle-icon-btn{
     background:none; border:none; padding:4px; margin:0;
     display:flex; align-items:center; justify-content:center; line-height:0;
@@ -249,6 +249,7 @@
   button.toggle-icon-btn{ cursor:pointer; }
   .toggle-icon-btn svg{ width:18px; height:18px; }
   .toggle-icon-btn.big svg{ width:24px; height:24px; }
+  .detail-toggles .toggle-icon-btn svg{ width:23px; height:23px; }
   .detail-line{ font-family:"SFMono-Regular",monospace; font-size:11px; color:var(--slate); display:flex; align-items:center; gap:6px; }
   .detail-stars{ display:flex; align-items:center; gap:6px; }
   .detail-desc{ font-size:13px; line-height:1.5; color:var(--ink); opacity:.88; }
@@ -346,7 +347,10 @@
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 
   .leaflet-popup-content{ font-family:-apple-system,sans-serif; font-size:12.5px; }
-  .popup-title{ font-family:Georgia,serif; font-weight:700; font-size:13.5px; margin-bottom:3px; }
+  .popup-title{ font-family:Georgia,serif; font-weight:700; font-size:13.5px; margin-bottom:3px; color:#3B2A1D; }
+  .popup-title-link{ text-decoration:none; }
+  .popup-title-link .popup-title{ border-bottom:1px dotted #8A3D1E; display:inline-block; }
+  .popup-title-link:active .popup-title{ opacity:0.6; }
 
   /* ---------- AUTH SCREEN ---------- */
   .auth-overlay{
@@ -1291,11 +1295,12 @@ function updateMapMarkers(){
     const icon = TYPE_ICONS[p.tipo] || '📍';
     const marker = L.marker([p.lat, p.lng], {icon: emojiIcon(icon)}).addTo(mapMarkersLayer);
     marker.bindPopup(`
-      <div class="popup-title">${icon} ${escapeHTML(p.nombre)}</div>
+      <a href="#" onclick="focusPanoramaRow('${p.id}'); return false;" class="popup-title-link">
+        <div class="popup-title">${icon} ${escapeHTML(p.nombre)}</div>
+      </a>
       <div style="display:flex;gap:1px;margin-bottom:4px;">${starsDisplayHTML(p.rating||0)}</div>
       <div style="color:#7C6B52;">${escapeHTML(p.comuna||'')}</div>
-      <a href="${googleMapsSatUrl(p.direccion,p.comuna)}" target="_blank" rel="noopener" style="color:#8A3D1E;">Ver en Google Maps ↗</a><br>
-      <a href="#" onclick="focusPanoramaRow('${p.id}'); return false;" style="color:#4C5736;">Ver detalle en la lista ↓</a>
+      <a href="${googleMapsSatUrl(p.direccion,p.comuna)}" target="_blank" rel="noopener" style="color:#8A3D1E;">Ver en Google Maps ↗</a>
     `);
     points.push([p.lat, p.lng]);
   });
