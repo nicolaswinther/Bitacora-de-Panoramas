@@ -669,6 +669,7 @@ let lastRenderedList = [];
 let pressInfo = null;
 let longPressTimer = null;
 let dragCtx = null;
+let scrollRAF = null;
 let suppressExpandClick = false;
 let unsubscribeSnapshot = null;
 let currentUid = null;
@@ -1280,7 +1281,7 @@ $('#mapToggleBtn').addEventListener('click', ()=>{
 });
 
 /* ================= MANTENER PRESIONADO PARA REORDENAR ================= */
-const LONG_PRESS_MS = 550;
+const LONG_PRESS_MS = 700;
 const MOVE_CANCEL_PX = 10;
 
 function rowsContainer(){ return document.getElementById('rows'); }
@@ -1299,7 +1300,15 @@ function onRowsPointerMove(e){
   const dy = e.clientY - pressInfo.startY;
   if(pressInfo.scrolling){
     e.preventDefault();
-    window.scrollTo(0, pressInfo.startScrollY - dy);
+    pressInfo.pendingDy = dy;
+    if(scrollRAF == null){
+      scrollRAF = requestAnimationFrame(()=>{
+        scrollRAF = null;
+        if(pressInfo && pressInfo.scrolling){
+          window.scrollTo(0, pressInfo.startScrollY - pressInfo.pendingDy);
+        }
+      });
+    }
     return;
   }
   const dx = e.clientX - pressInfo.startX;
@@ -1317,6 +1326,7 @@ function onRowsPointerMove(e){
 }
 function onRowsPointerUp(){
   clearTimeout(longPressTimer);
+  if(scrollRAF != null){ cancelAnimationFrame(scrollRAF); scrollRAF = null; }
   if(!dragCtx) pressInfo = null;
 }
 function beginDrag(){
