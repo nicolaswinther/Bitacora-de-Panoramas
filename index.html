@@ -181,6 +181,7 @@
   .row-main{
     display:grid; grid-template-columns:30px 1fr 90px 80px 68px; gap:8px; align-items:center;
     padding:11px 10px; cursor:pointer;
+    -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
   }
   .type-badge{
     flex:none; width:22px; display:inline-flex; align-items:center; justify-content:center;
@@ -491,16 +492,42 @@
         <div class="field">
           <label>Tipo de actividad</label>
           <select id="f_tipo">
-            <option value="Cafetería">☕ Cafetería</option>
-            <option value="Restaurante">🍽️ Restaurante</option>
-            <option value="Bar">🍺 Bar</option>
-            <option value="Música">🎵 Música</option>
-            <option value="Teatro">🎭 Teatro</option>
-            <option value="Museo / Cultural">🏛️ Museo / Cultural</option>
-            <option value="Galería">🎨 Galería</option>
-            <option value="Parque de diversiones">🎡 Parque de diversiones</option>
-            <option value="Parque / Naturaleza">🌲 Parque / Naturaleza</option>
-            <option value="Otro">📍 Otro</option>
+            <optgroup label="Restaurante">
+              <option value="Restaurante">🍽️ Restaurante (general)</option>
+              <option value="Sushi">🍙 Sushi</option>
+              <option value="Pizzas">🍕 Pizzas</option>
+              <option value="Asiática">🍜 Asiática</option>
+              <option value="Peruana">🥘 Peruana</option>
+              <option value="Hamburguesas">🍔 Hamburguesas</option>
+              <option value="Italiana">🍝 Italiana</option>
+              <option value="Mexicana">🌮 Mexicana</option>
+            </optgroup>
+            <optgroup label="Cafetería">
+              <option value="Cafetería">☕ Cafetería (general)</option>
+              <option value="Helados">🍦 Helados</option>
+              <option value="Panadería">🥐 Panadería</option>
+            </optgroup>
+            <optgroup label="Bar">
+              <option value="Bar">🍺 Bar (general)</option>
+              <option value="Jazz">🎷 Jazz</option>
+              <option value="Juegos de Mesa">🎲 Juegos de Mesa</option>
+              <option value="Videojuegos">🕹️ Videojuegos</option>
+            </optgroup>
+            <optgroup label="Cultural">
+              <option value="Museo">🏺 Museo</option>
+              <option value="Galería">🎨 Galería</option>
+              <option value="Teatro">🎭 Teatro</option>
+            </optgroup>
+            <optgroup label="Atracciones">
+              <option value="Atracciones">🎟️ Atracciones (general)</option>
+              <option value="Parque de diversiones">🎡 Parque de Diversiones</option>
+              <option value="Entretención">🎉 Entretención</option>
+            </optgroup>
+            <optgroup label="Otros">
+              <option value="Música">🎵 Música</option>
+              <option value="Parque / Naturaleza">🌲 Parque / Naturaleza</option>
+              <option value="Otro">📍 Otro</option>
+            </optgroup>
           </select>
         </div>
         <div class="field">
@@ -592,9 +619,16 @@ const fbDb = firebase.firestore();
 
 const STORAGE_KEY = 'panoramas-cache-v2';
 const TYPE_ICONS = {
-  'Cafetería':'☕', 'Restaurante':'🍽️', 'Bar':'🍺', 'Música':'🎵', 'Teatro':'🎭',
-  'Museo / Cultural':'🏛️', 'Galería':'🎨', 'Parque de diversiones':'🎡',
-  'Parque / Naturaleza':'🌲', 'Otro':'📍'
+  'Restaurante':'🍽️',
+  'Sushi':'🍙', 'Pizzas':'🍕', 'Asiática':'🍜', 'Peruana':'🥘', 'Hamburguesas':'🍔', 'Italiana':'🍝', 'Mexicana':'🌮',
+  'Cafetería':'☕',
+  'Helados':'🍦', 'Panadería':'🥐',
+  'Bar':'🍺',
+  'Jazz':'🎷', 'Juegos de Mesa':'🎲', 'Videojuegos':'🕹️',
+  'Museo':'🏺', 'Galería':'🎨', 'Teatro':'🎭',
+  'Atracciones':'🎟️', 'Parque de diversiones':'🎡', 'Entretención':'🎉',
+  'Música':'🎵', 'Parque / Naturaleza':'🌲', 'Otro':'📍',
+  'Museo / Cultural':'🏛️' /* valor antiguo, se mantiene solo para panoramas ya guardados con este tipo */
 };
 
 /* ---- íconos de "visitado" (ojo) y "me gusta" (corazón) ---- */
