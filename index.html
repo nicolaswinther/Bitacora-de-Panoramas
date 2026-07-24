@@ -179,10 +179,9 @@
     box-shadow:4px 8px 16px rgba(59,42,29,0.35); animation:none !important; margin:0 !important;
   }
   .row-main{
-    display:grid; grid-template-columns:30px 1fr 90px 80px 68px; gap:8px; align-items:center;
+    display:grid; grid-template-columns:30px 1fr 90px 80px 34px; gap:8px; align-items:center;
     padding:11px 10px; cursor:pointer;
     -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
-    touch-action:none;
   }
   .type-badge{
     flex:none; width:22px; display:inline-flex; align-items:center; justify-content:center;
@@ -205,7 +204,21 @@
     white-space:normal; overflow:visible; text-overflow:unset; line-height:1.4; padding-top:2px;
   }
   .row-rating{ display:flex; align-items:center; gap:3px; font-family:"SFMono-Regular",monospace; font-size:11px; color:var(--rust-dark); font-weight:bold; }
-  .row-actions{ display:flex; gap:6px; justify-content:flex-end; }
+
+  /* manija de arrastre: único punto de la fila donde se activa reordenar */
+  .drag-handle{
+    flex:none; width:34px; height:34px; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:3px; margin:0 auto;
+    cursor:grab; touch-action:none; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
+  }
+  .drag-handle span{
+    display:block; width:16px; height:2px; border-radius:1px;
+    background:var(--slate); opacity:0.4;
+  }
+  .drag-handle:active{ cursor:grabbing; }
+  .drag-handle:active span{ opacity:0.7; }
+
+  .detail-actions{ display:flex; gap:6px; justify-content:flex-end; margin-bottom:10px; }
   .row-icon-btn{
     flex:none; width:28px; height:28px; border-radius:7px;
     background:var(--paper); border:1.5px solid var(--ink); color:var(--ink);
@@ -216,7 +229,8 @@
   .row-icon-btn:active{ transform:translate(1px,1px); box-shadow:none; }
 
   .row-detail{ display:none; border-top:1.5px dashed var(--ink); padding:14px; }
-  .row-card.expanded .row-detail{ display:flex; gap:14px; flex-wrap:wrap; }
+  .row-card.expanded .row-detail{ display:block; }
+  .row-detail-body{ display:flex; gap:14px; flex-wrap:wrap; }
   .detail-img{
     width:100px; height:100px; border-radius:6px; border:1.5px solid var(--ink);
     background:var(--line) center/cover no-repeat; flex:none;
@@ -367,7 +381,7 @@
   @media (max-width:400px){
     .row-2{ grid-template-columns:1fr; }
     h1{ font-size:26px; }
-    .list-head, .row-main{ grid-template-columns:22px 1fr 62px 66px 58px; gap:5px; }
+    .list-head, .row-main{ grid-template-columns:22px 1fr 62px 66px 30px; gap:5px; }
   }
 </style>
 </head>
@@ -669,7 +683,6 @@ let lastRenderedList = [];
 let pressInfo = null;
 let longPressTimer = null;
 let dragCtx = null;
-let scrollRAF = null;
 let suppressExpandClick = false;
 let unsubscribeSnapshot = null;
 let currentUid = null;
@@ -924,25 +937,30 @@ function render(){
         <span class="row-name">${escapeHTML(p.nombre)}</span>
         <span class="row-comuna">${escapeHTML(p.comuna)}</span>
         <span class="row-rating">${(p.rating||0).toFixed(1)}★</span>
-        <span class="row-actions">
+        <span class="drag-handle" onclick="event.stopPropagation()" title="Mantén presionado para reordenar">
+          <span></span><span></span><span></span>
+        </span>
+      </div>
+      <div class="row-detail">
+        <div class="detail-actions">
           <button class="row-icon-btn" onclick="event.stopPropagation(); openEdit('${p.id}')" title="Editar">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
           </button>
           <button class="row-icon-btn" onclick="event.stopPropagation(); deleteEntry('${p.id}')" title="Eliminar">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
           </button>
-        </span>
-      </div>
-      <div class="row-detail">
-        <div class="detail-img" style="${p.image?`background-image:url('${p.image}')`:''}">${p.image?'':'sin imagen'}</div>
-        <div class="detail-info">
-          <div class="detail-toprow">
-            <span class="detail-address">${p.direccion ? `<a href="${googleMapsSatUrl(p.direccion,p.comuna)}" target="_blank" rel="noopener">${escapeHTML(p.direccion)} ↗</a>` : ''}</span>
-            <span class="detail-toggles">${toggleIconsHTML(p)}</span>
+        </div>
+        <div class="row-detail-body">
+          <div class="detail-img" style="${p.image?`background-image:url('${p.image}')`:''}">${p.image?'':'sin imagen'}</div>
+          <div class="detail-info">
+            <div class="detail-toprow">
+              <span class="detail-address">${p.direccion ? `<a href="${googleMapsSatUrl(p.direccion,p.comuna)}" target="_blank" rel="noopener">${escapeHTML(p.direccion)} ↗</a>` : ''}</span>
+              <span class="detail-toggles">${toggleIconsHTML(p)}</span>
+            </div>
+            <div class="detail-line"><span class="type-badge">${icon}</span>${escapeHTML(p.tipo)}</div>
+            <div class="detail-stars">${starsDisplayHTML(p.rating||0)}<span class="row-rating">${(p.rating||0).toFixed(1)}</span></div>
+            ${p.descripcion ? `<div class="detail-desc">${escapeHTML(p.descripcion)}</div>` : ''}
           </div>
-          <div class="detail-line"><span class="type-badge">${icon}</span>${escapeHTML(p.tipo)}</div>
-          <div class="detail-stars">${starsDisplayHTML(p.rating||0)}<span class="row-rating">${(p.rating||0).toFixed(1)}</span></div>
-          ${p.descripcion ? `<div class="detail-desc">${escapeHTML(p.descripcion)}</div>` : ''}
         </div>
       </div>
     </div>`;
@@ -953,6 +971,18 @@ window.toggleExpand = function(id){
   if(suppressExpandClick) return;
   if(expandedIds.has(id)) expandedIds.delete(id); else expandedIds.add(id);
   render();
+};
+
+window.focusPanoramaRow = function(id){
+  mapOpen = false;
+  $('#mapToggleBtn').classList.remove('active');
+  $('#mapPanel').classList.remove('open');
+  expandedIds.add(id);
+  render();
+  setTimeout(()=>{
+    const el = document.querySelector(`.row-card[data-id="${id}"]`);
+    if(el) el.scrollIntoView({ behavior:'smooth', block:'center' });
+  }, 60);
 };
 
 /* ================= MODAL AGREGAR/EDITAR ================= */
@@ -1264,7 +1294,8 @@ function updateMapMarkers(){
       <div class="popup-title">${icon} ${escapeHTML(p.nombre)}</div>
       <div style="display:flex;gap:1px;margin-bottom:4px;">${starsDisplayHTML(p.rating||0)}</div>
       <div style="color:#7C6B52;">${escapeHTML(p.comuna||'')}</div>
-      <a href="${googleMapsSatUrl(p.direccion,p.comuna)}" target="_blank" rel="noopener" style="color:#8A3D1E;">Ver en Google Maps ↗</a>
+      <a href="${googleMapsSatUrl(p.direccion,p.comuna)}" target="_blank" rel="noopener" style="color:#8A3D1E;">Ver en Google Maps ↗</a><br>
+      <a href="#" onclick="focusPanoramaRow('${p.id}'); return false;" style="color:#4C5736;">Ver detalle en la lista ↓</a>
     `);
     points.push([p.lat, p.lng]);
   });
@@ -1281,52 +1312,30 @@ $('#mapToggleBtn').addEventListener('click', ()=>{
 });
 
 /* ================= MANTENER PRESIONADO PARA REORDENAR ================= */
-const LONG_PRESS_MS = 700;
-const MOVE_CANCEL_PX = 10;
+const LONG_PRESS_MS = 450;
+const MOVE_CANCEL_PX = 8;
 
 function rowsContainer(){ return document.getElementById('rows'); }
 
 function onRowsPointerDown(e){
-  const rowMain = e.target.closest('.row-main');
-  if(!rowMain || e.target.closest('.row-icon-btn')) return;
-  const card = rowMain.closest('.row-card');
+  const handle = e.target.closest('.drag-handle');
+  if(!handle) return;
+  const card = handle.closest('.row-card');
   if(!card) return;
-  pressInfo = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, card, scrolling:false, startScrollY: window.scrollY };
+  pressInfo = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, card };
   clearTimeout(longPressTimer);
   longPressTimer = setTimeout(()=> beginDrag(), LONG_PRESS_MS);
 }
 function onRowsPointerMove(e){
   if(!pressInfo || e.pointerId !== pressInfo.pointerId || dragCtx) return;
-  const dy = e.clientY - pressInfo.startY;
-  if(pressInfo.scrolling){
-    e.preventDefault();
-    pressInfo.pendingDy = dy;
-    if(scrollRAF == null){
-      scrollRAF = requestAnimationFrame(()=>{
-        scrollRAF = null;
-        if(pressInfo && pressInfo.scrolling){
-          window.scrollTo(0, pressInfo.startScrollY - pressInfo.pendingDy);
-        }
-      });
-    }
-    return;
-  }
-  const dx = e.clientX - pressInfo.startX;
+  const dx = e.clientX - pressInfo.startX, dy = e.clientY - pressInfo.startY;
   if(Math.hypot(dx, dy) > MOVE_CANCEL_PX){
-    // El dedo se movió antes de completarse la espera: es un gesto de scroll,
-    // no de arrastre. Como el navegador ya no maneja el scroll nativo en las
-    // filas (touch-action:none), lo replicamos nosotros mismos.
     clearTimeout(longPressTimer);
-    pressInfo.scrolling = true;
-    pressInfo.startScrollY = window.scrollY;
-    pressInfo.startX = e.clientX;
-    pressInfo.startY = e.clientY;
-    e.preventDefault();
+    pressInfo = null;
   }
 }
 function onRowsPointerUp(){
   clearTimeout(longPressTimer);
-  if(scrollRAF != null){ cancelAnimationFrame(scrollRAF); scrollRAF = null; }
   if(!dragCtx) pressInfo = null;
 }
 function beginDrag(){
@@ -1414,7 +1423,7 @@ function applyNewOrder(movedId, finalIndex){
   persistLocalCache();
 }
 rowsContainer().addEventListener('pointerdown', onRowsPointerDown);
-rowsContainer().addEventListener('pointermove', onRowsPointerMove, { passive:false });
+rowsContainer().addEventListener('pointermove', onRowsPointerMove);
 rowsContainer().addEventListener('pointerup', onRowsPointerUp);
 rowsContainer().addEventListener('pointercancel', onRowsPointerUp);
 
