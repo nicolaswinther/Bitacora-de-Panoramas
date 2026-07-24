@@ -182,6 +182,7 @@
     display:grid; grid-template-columns:30px 1fr 90px 80px 68px; gap:8px; align-items:center;
     padding:11px 10px; cursor:pointer;
     -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
+    touch-action:none;
   }
   .type-badge{
     flex:none; width:22px; display:inline-flex; align-items:center; justify-content:center;
@@ -1289,16 +1290,29 @@ function onRowsPointerDown(e){
   if(!rowMain || e.target.closest('.row-icon-btn')) return;
   const card = rowMain.closest('.row-card');
   if(!card) return;
-  pressInfo = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, card };
+  pressInfo = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, card, scrolling:false, startScrollY: window.scrollY };
   clearTimeout(longPressTimer);
   longPressTimer = setTimeout(()=> beginDrag(), LONG_PRESS_MS);
 }
 function onRowsPointerMove(e){
   if(!pressInfo || e.pointerId !== pressInfo.pointerId || dragCtx) return;
-  const dx = e.clientX - pressInfo.startX, dy = e.clientY - pressInfo.startY;
+  const dy = e.clientY - pressInfo.startY;
+  if(pressInfo.scrolling){
+    e.preventDefault();
+    window.scrollTo(0, pressInfo.startScrollY - dy);
+    return;
+  }
+  const dx = e.clientX - pressInfo.startX;
   if(Math.hypot(dx, dy) > MOVE_CANCEL_PX){
+    // El dedo se movió antes de completarse la espera: es un gesto de scroll,
+    // no de arrastre. Como el navegador ya no maneja el scroll nativo en las
+    // filas (touch-action:none), lo replicamos nosotros mismos.
     clearTimeout(longPressTimer);
-    pressInfo = null;
+    pressInfo.scrolling = true;
+    pressInfo.startScrollY = window.scrollY;
+    pressInfo.startX = e.clientX;
+    pressInfo.startY = e.clientY;
+    e.preventDefault();
   }
 }
 function onRowsPointerUp(){
@@ -1390,7 +1404,7 @@ function applyNewOrder(movedId, finalIndex){
   persistLocalCache();
 }
 rowsContainer().addEventListener('pointerdown', onRowsPointerDown);
-rowsContainer().addEventListener('pointermove', onRowsPointerMove);
+rowsContainer().addEventListener('pointermove', onRowsPointerMove, { passive:false });
 rowsContainer().addEventListener('pointerup', onRowsPointerUp);
 rowsContainer().addEventListener('pointercancel', onRowsPointerUp);
 
